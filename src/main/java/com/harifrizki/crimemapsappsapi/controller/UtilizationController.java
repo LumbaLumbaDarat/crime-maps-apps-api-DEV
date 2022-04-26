@@ -6,14 +6,19 @@ import com.harifrizki.crimemapsappsapi.model.HandshakeModel;
 import com.harifrizki.crimemapsappsapi.model.UtilizationModel;
 import com.harifrizki.crimemapsappsapi.model.response.GeneralMessageResponse;
 import com.harifrizki.crimemapsappsapi.model.response.UtilizationResponse;
+import com.harifrizki.crimemapsappsapi.network.response.ImageStorageResponse;
 import com.harifrizki.crimemapsappsapi.repository.*;
+import com.harifrizki.crimemapsappsapi.service.OnUpload;
+import com.harifrizki.crimemapsappsapi.service.impl.UploadImageServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.UUID;
 
+import static com.harifrizki.crimemapsappsapi.network.NetworkConstants.*;
 import static com.harifrizki.crimemapsappsapi.utils.AppsConstants.*;
 import static com.harifrizki.crimemapsappsapi.utils.ControllerConstants.*;
 import static com.harifrizki.crimemapsappsapi.utils.UtilizationClass.*;
@@ -39,6 +44,9 @@ public class UtilizationController {
     private UrbanVillageRepository urbanVillageRepository;
 
     @Autowired
+    private UploadImageServiceImpl uploadImageService;
+
+    @Autowired
     private Environment environment;
 
     @GetMapping(HANDSHAKE_CONTROLLER)
@@ -57,12 +65,33 @@ public class UtilizationController {
             handshake.setDefaultImageAdmin(environment.getProperty(DEFAULT_IMAGE_ADMIN));
             handshake.setFirstRootAdmin(environment.getProperty(DEFAULT_ADMIN_FIRST_ROOT_USERNAME));
 
-            response.setHandshake(handshake);
+            uploadImageService.setOnUpload(new OnUpload() {
+                @Override
+                public void onResponse(ImageStorageResponse response) {
+                    super.onResponse(response);
+                    if (response.getSuccess())
+                    {
+                        ArrayList<String> urlImageStorageApi = new ArrayList<>();
+                        urlImageStorageApi.add(API_CONNECTION_URL_IMAGE.
+                                concat(API_CONNECTION_URL_CRIME_LOCATION_IMAGE_STORAGE));
+                        urlImageStorageApi.add(API_CONNECTION_URL_IMAGE.
+                                concat(API_CONNECTION_URL_ADMIN_IMAGE_STORAGE));
 
-            message.setSuccess(true);
-            message.setMessage(successProcess(
-                    "to API",
-                    "Handshake"));
+                        handshake.setUrlImageStorageApi(urlImageStorageApi);
+
+                        message.setSuccess(true);
+                        message.setMessage(successProcess(
+                                "to API",
+                                "Handshake"));
+                    } else {
+                        message.setSuccess(false);
+                        message.setMessage(response.getMessage());
+                    }
+                }
+            });
+            uploadImageService.handshake();
+
+            response.setHandshake(handshake);
         } catch (Exception e) {
             message.setSuccess(false);
             message.setMessage(e.getMessage());

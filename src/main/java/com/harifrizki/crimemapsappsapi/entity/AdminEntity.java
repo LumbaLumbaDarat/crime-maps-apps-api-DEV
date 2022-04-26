@@ -14,6 +14,7 @@ import static com.harifrizki.crimemapsappsapi.utils.AppsConstants.EMPTY_STRING;
 @Entity
 @Table(name = "admin")
 public class AdminEntity {
+
     @Id
     @GenericGenerator(name = "uuid", strategy = "uuid2")
     @GeneratedValue(generator = "uuid")

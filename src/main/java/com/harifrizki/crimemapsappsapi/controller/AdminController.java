@@ -1,9 +1,13 @@
 package com.harifrizki.crimemapsappsapi.controller;
 
+import com.google.gson.Gson;
 import com.harifrizki.crimemapsappsapi.entity.AdminEntity;
 import com.harifrizki.crimemapsappsapi.model.AdminModel;
 import com.harifrizki.crimemapsappsapi.model.response.*;
+import com.harifrizki.crimemapsappsapi.network.response.ImageStorageResponse;
 import com.harifrizki.crimemapsappsapi.repository.AdminRepository;
+import com.harifrizki.crimemapsappsapi.service.OnUpload;
+import com.harifrizki.crimemapsappsapi.service.impl.UploadImageServiceImpl;
 import com.harifrizki.crimemapsappsapi.service.impl.PaginationServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
@@ -13,6 +17,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -29,6 +34,9 @@ public class AdminController {
 
     @Autowired
     private AdminRepository adminRepository;
+
+    @Autowired
+    private UploadImageServiceImpl uploadImageService;
 
     @Autowired
     private PaginationServiceImpl paginationService;
@@ -186,12 +194,17 @@ public class AdminController {
         return response.toJson(response, OPERATION_CRU);
     }
 
-    @PostMapping(ADMIN_ADD_CONTROLLER)
-    private String add(@Validated @RequestBody AdminEntity adminEntity) {
+    @RequestMapping(
+            path = ADMIN_ADD_CONTROLLER,
+            method = RequestMethod.POST,
+            consumes = {"multipart/form-data"})
+    private String add(@Validated @RequestParam("adminEntity") String jsonAdminEntity,
+                       @Validated @RequestParam("adminPhotoProfile") MultipartFile photoProfile) {
         AdminResponse response = new AdminResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
         try {
+            AdminEntity adminEntity = new Gson().fromJson(jsonAdminEntity, AdminEntity.class);
             AdminEntity createdBy = checkAdminWasExistOrNot(adminEntity.getCreatedBy());
 
             if (createdBy == null)
@@ -210,20 +223,34 @@ public class AdminController {
 
                 AdminEntity result = adminRepository.save(adminEntity);
 
-                AdminEntity updatedBy = null;
-                if (result.getUpdatedBy() != null)
-                    updatedBy = checkAdminWasExistOrNot(result.getUpdatedBy());
+                uploadImageService.setOnUpload(new OnUpload() {
+                    @Override
+                    public void onResponse(AdminEntity admin, ImageStorageResponse uploadResponse) {
+                        super.onResponse(admin, uploadResponse);
+                        if (uploadResponse.getSuccess())
+                        {
+                            admin.setAdminImage(uploadResponse.getValue());
+                            admin = adminRepository.save(admin);
 
-                response.setAdmin(
-                        new AdminModel().
-                                convertFromEntityToModel(
-                                        result, createdBy, updatedBy));
+                            response.setAdmin(
+                                    new AdminModel().
+                                            convertFromEntityToModel(
+                                                    admin, createdBy, null));
 
-                message.setSuccess(true);
-                message.setMessage(
-                        successProcess(
-                                environment.getProperty(ENTITY_ADMIN),
-                                "Added New"));
+                            message.setSuccess(true);
+                            message.setMessage(
+                                    successProcess(
+                                            environment.getProperty(ENTITY_ADMIN),
+                                            "Added New"));
+                        } else {
+                            adminRepository.delete(admin);
+
+                            message.setSuccess(false);
+                            message.setMessage(uploadResponse.getMessage());
+                        }
+                    }
+                });
+                uploadImageService.uploadPhotoProfile(result, photoProfile);
             }
         } catch (Exception e) {
             message.setSuccess(false);

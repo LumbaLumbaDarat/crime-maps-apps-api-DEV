@@ -1,6 +1,16 @@
 package com.harifrizki.crimemapsappsapi.utils;
 
+import okhttp3.MediaType;
+import okhttp3.RequestBody;
+import org.apache.commons.io.FileUtils;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Objects;
 
 import static com.harifrizki.crimemapsappsapi.utils.AppsConstants.*;
 import static com.harifrizki.crimemapsappsapi.utils.ControllerConstants.GENERAL_CONTROLLER_URL;
@@ -92,5 +102,21 @@ public class UtilizationClass {
             default:
                 return EMPTY_STRING;
         }
+    }
+
+    public static File convert(MultipartFile multipartFile) throws IOException {
+        File newFile = new File(System.getProperty("java.io.tmpdir") + multipartFile.getOriginalFilename());
+        FileOutputStream fos = new FileOutputStream(newFile);
+        fos.write(multipartFile.getBytes());
+        fos.close();
+        return newFile;
+    }
+
+    public static RequestBody toRequestBody (String value) {
+        return RequestBody.create(value, MediaType.parse("text/plain"));
+    }
+
+    public static RequestBody toRequestBody (File file) {
+        return RequestBody.create(file, MediaType.parse("image/*"));
     }
 }

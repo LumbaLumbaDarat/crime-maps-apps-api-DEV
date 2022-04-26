@@ -3,6 +3,7 @@ package com.harifrizki.crimemapsappsapi.model;
 import com.harifrizki.crimemapsappsapi.entity.AdminEntity;
 import lombok.Getter;
 import lombok.Setter;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -25,6 +26,9 @@ public class AdminModel {
 
     @Getter @Setter
     private String adminImage = EMPTY_STRING;
+
+    @Getter @Setter
+    private MultipartFile photoProfile;
 
     @Getter @Setter
     private Boolean isLogin;
@@ -63,6 +67,7 @@ public class AdminModel {
         admin.setAdminName(adminEntity.getAdminName());
         admin.setAdminUsername(adminEntity.getAdminUsername());
         admin.setAdminRole(adminEntity.getAdminRole());
+        admin.setAdminImage(adminEntity.getAdminImage());
 
         if (createdBy != null)
             admin.setCreatedBy(new AdminModel().convertFromEntityToModel(createdBy));
