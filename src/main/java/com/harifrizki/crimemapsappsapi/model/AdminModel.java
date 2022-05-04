@@ -28,9 +28,6 @@ public class AdminModel {
     private String adminImage = EMPTY_STRING;
 
     @Getter @Setter
-    private MultipartFile photoProfile;
-
-    @Getter @Setter
     private Boolean isLogin;
 
     @Getter @Setter

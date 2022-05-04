@@ -25,6 +25,8 @@ public class ControllerConstants {
             ADMIN_GET_ALL_CONTROLLER + "/inject-default-first-admin-root";
     public static final String ADMIN_UPDATE_CONTROLLER                       =
             ADMIN_GET_ALL_CONTROLLER + GENERAL_CONTROLLER_UPDATE_URL;
+    public static final String ADMIN_UPDATE_IMAGE_PROFILE_CONTROLLER         =
+            ADMIN_GET_ALL_CONTROLLER + "/change-image-profile";
     public static final String ADMIN_UPDATE_PASSWORD_CONTROLLER              =
             ADMIN_GET_ALL_CONTROLLER + "/update-password";
     public static final String ADMIN_RESET_PASSWORD_CONTROLLER               =
@@ -87,4 +89,8 @@ public class ControllerConstants {
             URBAN_VILLAGE_GET_ALL_CONTROLLER + GENERAL_CONTROLLER_UPDATE_URL;
     public static final String URBAN_VILLAGE_DELETE_CONTROLLER                         =
             URBAN_VILLAGE_GET_ALL_CONTROLLER + GENERAL_CONTROLLER_DELETE_URL;
+
+    public static final String CRIME_LOCATION_GET_ALL_CONTROLLER              = "crime-location";
+    public static final String CRIME_LOCATION_ADD_CONTROLLER                  =
+            CRIME_LOCATION_GET_ALL_CONTROLLER + GENERAL_CONTROLLER_ADD_URL;
 }

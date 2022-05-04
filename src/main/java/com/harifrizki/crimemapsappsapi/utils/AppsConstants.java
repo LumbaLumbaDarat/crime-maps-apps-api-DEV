@@ -38,6 +38,8 @@ public class AppsConstants {
     public static final String ADMIN_ROLE_ROOT  = "admin.role.root";
     public static final String ADMIN_ROLE_ADMIN = "admin.role.admin";
 
+    public static final String TEMP_FOLDER_FILE_UPLOAD = "folder.temp.upload.image";
+
     public static final String ENTITY_ADMIN          = "entity.admin";
     public static final String ENTITY_ADMIN_ID       = "entity.admin.id";
     public static final String ENTITY_ADMIN_USERNAME = "entity.admin.username";
@@ -57,4 +59,8 @@ public class AppsConstants {
     public static final String ENTITY_URBAN_VILLAGE      = "entity.urbanvillage";
     public static final String ENTITY_URBAN_VILLAGE_ID   = "entity.urbanvillage.id";
     public static final String ENTITY_URBAN_VILLAGE_NAME = "entity.urbanvillage.name";
+
+    public static final String ENTITY_CRIME_LOCATION      = "entity.crimelocation";
+    public static final String ENTITY_CRIME_LOCATION_ID   = "entity.crimelocation.id";
+    public static final String ENTITY_CRIME_LOCATION_NAME = "entity.crimelocation.name";
 }

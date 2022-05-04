@@ -1,7 +1,6 @@
 package com.harifrizki.crimemapsappsapi.model;
 
 import com.harifrizki.crimemapsappsapi.entity.AdminEntity;
-import com.harifrizki.crimemapsappsapi.entity.CityEntity;
 import com.harifrizki.crimemapsappsapi.entity.SubDistrictEntity;
 import com.harifrizki.crimemapsappsapi.entity.UrbanVillageEntity;
 import lombok.Getter;
@@ -34,6 +33,13 @@ public class UrbanVillageModel {
     private LocalDateTime updatedDate;
 
     public UrbanVillageModel() {
+    }
+
+    public UrbanVillageModel convertFromEntityToModel(UrbanVillageEntity urbanVillageEntity) {
+        UrbanVillageModel urbanVillage = new UrbanVillageModel();
+        urbanVillage.setUrbanVillageId(urbanVillageEntity.getUrbanVillageId());
+        urbanVillage.setUrbanVillageName(urbanVillageEntity.getUrbanVillageName());
+        return urbanVillage;
     }
 
     public UrbanVillageModel convertFromEntityToModel(

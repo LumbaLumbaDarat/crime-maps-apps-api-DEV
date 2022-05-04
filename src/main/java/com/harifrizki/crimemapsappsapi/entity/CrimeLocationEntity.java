@@ -7,6 +7,7 @@ import org.hibernate.annotations.Type;
 
 import javax.persistence.*;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -63,6 +64,10 @@ public class CrimeLocationEntity {
     @Getter @Setter
     @Column(name = "crime_description", columnDefinition="TEXT", nullable = false)
     private String crimeDescription = "";
+
+    @Getter @Setter
+    @OneToMany(targetEntity = ImageCrimeLocationEntity.class)
+    private List<ImageCrimeLocationEntity> imageCrimeLocationEntities;
 
     @Getter @Setter
     @Column(name = "created_by")

@@ -8,8 +8,8 @@ import com.harifrizki.crimemapsappsapi.model.response.GeneralMessageResponse;
 import com.harifrizki.crimemapsappsapi.model.response.UtilizationResponse;
 import com.harifrizki.crimemapsappsapi.network.response.ImageStorageResponse;
 import com.harifrizki.crimemapsappsapi.repository.*;
-import com.harifrizki.crimemapsappsapi.service.OnUpload;
-import com.harifrizki.crimemapsappsapi.service.impl.UploadImageServiceImpl;
+import com.harifrizki.crimemapsappsapi.service.ResponseImageService;
+import com.harifrizki.crimemapsappsapi.service.impl.ImageServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.validation.annotation.Validated;
@@ -44,7 +44,7 @@ public class UtilizationController {
     private UrbanVillageRepository urbanVillageRepository;
 
     @Autowired
-    private UploadImageServiceImpl uploadImageService;
+    private ImageServiceImpl uploadImageService;
 
     @Autowired
     private Environment environment;
@@ -65,7 +65,7 @@ public class UtilizationController {
             handshake.setDefaultImageAdmin(environment.getProperty(DEFAULT_IMAGE_ADMIN));
             handshake.setFirstRootAdmin(environment.getProperty(DEFAULT_ADMIN_FIRST_ROOT_USERNAME));
 
-            uploadImageService.setOnUpload(new OnUpload() {
+            uploadImageService.setResponseImageService(new ResponseImageService() {
                 @Override
                 public void onResponse(ImageStorageResponse response) {
                     super.onResponse(response);

@@ -6,8 +6,8 @@ import com.harifrizki.crimemapsappsapi.model.AdminModel;
 import com.harifrizki.crimemapsappsapi.model.response.*;
 import com.harifrizki.crimemapsappsapi.network.response.ImageStorageResponse;
 import com.harifrizki.crimemapsappsapi.repository.AdminRepository;
-import com.harifrizki.crimemapsappsapi.service.OnUpload;
-import com.harifrizki.crimemapsappsapi.service.impl.UploadImageServiceImpl;
+import com.harifrizki.crimemapsappsapi.service.ResponseImageService;
+import com.harifrizki.crimemapsappsapi.service.impl.ImageServiceImpl;
 import com.harifrizki.crimemapsappsapi.service.impl.PaginationServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
@@ -36,7 +36,7 @@ public class AdminController {
     private AdminRepository adminRepository;
 
     @Autowired
-    private UploadImageServiceImpl uploadImageService;
+    private ImageServiceImpl imageService;
 
     @Autowired
     private PaginationServiceImpl paginationService;
@@ -223,13 +223,13 @@ public class AdminController {
 
                 AdminEntity result = adminRepository.save(adminEntity);
 
-                uploadImageService.setOnUpload(new OnUpload() {
+                imageService.setResponseImageService(new ResponseImageService() {
                     @Override
-                    public void onResponse(AdminEntity admin, ImageStorageResponse uploadResponse) {
-                        super.onResponse(admin, uploadResponse);
-                        if (uploadResponse.getSuccess())
+                    public void onResponse(AdminEntity admin, ImageStorageResponse imageStorageResponse) {
+                        super.onResponse(admin, imageStorageResponse);
+                        if (imageStorageResponse.getSuccess())
                         {
-                            admin.setAdminImage(uploadResponse.getValue());
+                            admin.setAdminImage(imageStorageResponse.getValue());
                             admin = adminRepository.save(admin);
 
                             response.setAdmin(
@@ -246,11 +246,11 @@ public class AdminController {
                             adminRepository.delete(admin);
 
                             message.setSuccess(false);
-                            message.setMessage(uploadResponse.getMessage());
+                            message.setMessage(imageStorageResponse.getMessage());
                         }
                     }
                 });
-                uploadImageService.uploadPhotoProfile(result, photoProfile);
+                imageService.upload(environment, result, photoProfile);
             }
         } catch (Exception e) {
             message.setSuccess(false);
@@ -355,6 +355,84 @@ public class AdminController {
                             environment.getProperty(ENTITY_ADMIN_USERNAME),
                             existAdmin.getAdminUsername(),
                             "Updated"));
+                }
+            }
+        } catch (Exception e) {
+            message.setSuccess(false);
+            message.setMessage(e.getMessage());
+        }
+
+        response.setMessage(message);
+        return response.toJson(response, OPERATION_CRU);
+    }
+
+    @RequestMapping(
+            path = ADMIN_UPDATE_IMAGE_PROFILE_CONTROLLER,
+            method = RequestMethod.POST,
+            consumes = {"multipart/form-data"})
+    private String updatePhotoProfile(@Validated @RequestParam("adminEntity") String jsonAdminEntity,
+                                      @Validated @RequestParam("adminPhotoProfile") MultipartFile photoProfile) {
+        AdminResponse response = new AdminResponse();
+        GeneralMessageResponse message = new GeneralMessageResponse();
+
+        try {
+            AdminEntity adminEntity = new Gson().fromJson(jsonAdminEntity, AdminEntity.class);
+            AdminEntity existAdmin = checkAdminWasExistOrNot(adminEntity.getAdminId());
+            AdminEntity updatedBy = checkAdminWasExistOrNot(adminEntity.getUpdatedBy());
+
+            if (existAdmin == null)
+            {
+                message.setSuccess(false);
+                message.setMessage(existEntityNotFound(
+                        environment.getProperty(ENTITY_ADMIN),
+                        environment.getProperty(ENTITY_ADMIN_ID),
+                        String.valueOf(adminEntity.getAdminId())));
+            } else {
+                if (updatedBy == null)
+                {
+                    message.setSuccess(false);
+                    message.setMessage(existEntityNotFound(
+                            environment.getProperty(ENTITY_ADMIN),
+                            environment.getProperty(ENTITY_ADMIN_ID),
+                            String.valueOf(adminEntity.getUpdatedBy()),
+                            "Updated Photo Profile Existing",
+                            environment.getProperty(ENTITY_ADMIN)));
+                } else {
+                    AdminEntity createdBy = null;
+                    if (existAdmin.getCreatedBy() != null)
+                        createdBy = checkAdminWasExistOrNot(existAdmin.getCreatedBy());
+
+                    imageService.setResponseImageService(new ResponseImageService() {
+                        @Override
+                        public void onResponse(AdminEntity admin, AdminEntity createdBy, ImageStorageResponse imageStorageResponse) {
+                            super.onResponse(admin, createdBy, imageStorageResponse);
+                            if (imageStorageResponse.getSuccess())
+                            {
+                                admin.setUpdatedBy(updatedBy.getAdminId());
+                                admin.setUpdatedDate(LocalDateTime.now());
+
+                                response.setAdmin(
+                                        new AdminModel().
+                                                convertFromEntityToModel(
+                                                        adminRepository.save(existAdmin),
+                                                        createdBy,
+                                                        updatedBy));
+
+                                message.setSuccess(true);
+                                message.setMessage(successProcess(
+                                        environment.getProperty(ENTITY_ADMIN),
+                                        environment.getProperty(ENTITY_ADMIN_ID),
+                                        String.valueOf(adminEntity.getAdminId()),
+                                        environment.getProperty(ENTITY_ADMIN_USERNAME),
+                                        existAdmin.getAdminUsername(),
+                                        "Updated Photo Profile"));
+                            } else {
+                                message.setSuccess(false);
+                                message.setMessage(imageStorageResponse.getMessage());
+                            }
+                        }
+                    });
+                    imageService.update(environment, existAdmin, createdBy, photoProfile);
                 }
             }
         } catch (Exception e) {
@@ -584,17 +662,30 @@ public class AdminController {
                         environment.getProperty(ENTITY_ADMIN_ID),
                         String.valueOf(adminEntity.getAdminId())));
             } else {
-                adminRepository.delete(adminEntity);
+                imageService.setResponseImageService(new ResponseImageService() {
+                    @Override
+                    public void onResponse(ImageStorageResponse response) {
+                        super.onResponse(response);
+                        if (response.getSuccess())
+                        {
+                            adminRepository.delete(adminEntity);
 
-                message.setSuccess(true);
-                message.setMessage(
-                        successProcess(
-                                environment.getProperty(ENTITY_ADMIN),
-                                environment.getProperty(ENTITY_ADMIN_ID),
-                                String.valueOf(adminEntity.getAdminId()),
-                                environment.getProperty(ENTITY_ADMIN_USERNAME),
-                                existAdmin.getAdminUsername(),
-                                "Deleted"));
+                            message.setSuccess(true);
+                            message.setMessage(
+                                    successProcess(
+                                            environment.getProperty(ENTITY_ADMIN),
+                                            environment.getProperty(ENTITY_ADMIN_ID),
+                                            String.valueOf(adminEntity.getAdminId()),
+                                            environment.getProperty(ENTITY_ADMIN_USERNAME),
+                                            existAdmin.getAdminUsername(),
+                                            "Deleted"));
+                        } else {
+                            message.setSuccess(false);
+                            message.setMessage(response.getMessage());
+                        }
+                    }
+                });
+                imageService.delete(existAdmin);
             }
         } catch (Exception e) {
             message.setSuccess(false);

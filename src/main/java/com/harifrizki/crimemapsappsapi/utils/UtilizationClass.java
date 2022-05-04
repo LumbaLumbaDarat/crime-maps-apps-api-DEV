@@ -1,15 +1,17 @@
 package com.harifrizki.crimemapsappsapi.utils;
 
 import okhttp3.MediaType;
+import okhttp3.MultipartBody;
 import okhttp3.RequestBody;
-import org.apache.commons.io.FileUtils;
+import org.springframework.core.env.Environment;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 import static com.harifrizki.crimemapsappsapi.utils.AppsConstants.*;
@@ -104,8 +106,17 @@ public class UtilizationClass {
         }
     }
 
-    public static File convert(MultipartFile multipartFile) throws IOException {
-        File newFile = new File(System.getProperty("java.io.tmpdir") + multipartFile.getOriginalFilename());
+    public static File convert(Environment environment, MultipartFile multipartFile, String fileName) throws IOException {
+        File tempDirectory = new File(new File(System.getProperty("java.io.tmpdir")),
+                Objects.requireNonNull(environment.getProperty(TEMP_FOLDER_FILE_UPLOAD)));
+
+        if (!tempDirectory.exists())
+            tempDirectory.mkdir();
+
+        File newFile = new File(tempDirectory.getAbsolutePath() +
+                fileName +
+                "_" +
+                multipartFile.getOriginalFilename());
         FileOutputStream fos = new FileOutputStream(newFile);
         fos.write(multipartFile.getBytes());
         fos.close();
@@ -118,5 +129,19 @@ public class UtilizationClass {
 
     public static RequestBody toRequestBody (File file) {
         return RequestBody.create(file, MediaType.parse("image/*"));
+    }
+
+    public static List<MultipartBody.Part> toRequestBody (List<File> files, String multipartName) {
+        List<MultipartBody.Part> parts = new ArrayList<>();
+        RequestBody requestBody;
+        for (File file : files)
+        {
+            requestBody = RequestBody.create(file, MediaType.parse("image/*"));
+            parts.add(MultipartBody.Part.createFormData(
+                    multipartName,
+                    file.getName(),
+                    requestBody));
+        }
+        return parts;
     }
 }
