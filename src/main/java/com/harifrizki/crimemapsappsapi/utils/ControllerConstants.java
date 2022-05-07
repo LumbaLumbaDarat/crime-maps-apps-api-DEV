@@ -90,7 +90,21 @@ public class ControllerConstants {
     public static final String URBAN_VILLAGE_DELETE_CONTROLLER                         =
             URBAN_VILLAGE_GET_ALL_CONTROLLER + GENERAL_CONTROLLER_DELETE_URL;
 
-    public static final String CRIME_LOCATION_GET_ALL_CONTROLLER              = "crime-location";
-    public static final String CRIME_LOCATION_ADD_CONTROLLER                  =
+    public static final String CRIME_LOCATION_GET_ALL_CONTROLLER                  = "crime-location";
+    public static final String CRIME_LOCATION_GET_ALL_NEAREST_LOCATION_CONTROLLER =
+            CRIME_LOCATION_GET_ALL_CONTROLLER + "/nearest-location";
+    public static final String CRIME_LOCATION_SEARCH_ID_CONTROLLER                =
+            CRIME_LOCATION_GET_ALL_CONTROLLER + GENERAL_CONTROLLER_SEARCH_BY_ID_URL;
+    public static final String CRIME_LOCATION_SEARCH_AREA_ID_CONTROLLER           =
+            CRIME_LOCATION_GET_ALL_CONTROLLER + "/search-by-area-id";
+    public static final String CRIME_LOCATION_ADD_CONTROLLER                      =
             CRIME_LOCATION_GET_ALL_CONTROLLER + GENERAL_CONTROLLER_ADD_URL;
+    public static final String CRIME_LOCATION_ADD_IMAGE_CONTROLLER                =
+            CRIME_LOCATION_GET_ALL_CONTROLLER + "/add-image";
+    public static final String CRIME_LOCATION_UPDATE_CONTROLLER                   =
+            CRIME_LOCATION_GET_ALL_CONTROLLER + GENERAL_CONTROLLER_UPDATE_URL;
+    public static final String CRIME_LOCATION_DELETE_CONTROLLER                   =
+            CRIME_LOCATION_GET_ALL_CONTROLLER + GENERAL_CONTROLLER_DELETE_URL;
+    public static final String CRIME_LOCATION_DELETE_IMAGE_CONTROLLER             =
+            CRIME_LOCATION_GET_ALL_CONTROLLER + "/delete-image";
 }

@@ -30,4 +30,8 @@ public interface EndPoint {
     @POST("services/api_image_crime_location.php?api=upload_image_crime_location")
     Call<ImageStorageResponse> uploadCrimeLocationPhoto(@PartMap() Map<String, RequestBody> partMap,
                                                         @Part List<MultipartBody.Part> files);
+
+    @FormUrlEncoded
+    @POST("services/api_image_crime_location.php?api=delete_image_crime_location")
+    Call<ImageStorageResponse> deleteCrimeLocationPhoto(@Field("image_crime_location[]") List<String> strings);
 }

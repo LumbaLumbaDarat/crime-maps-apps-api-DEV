@@ -5,9 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 import static com.harifrizki.crimemapsappsapi.utils.AppsConstants.EMPTY_STRING;
 
@@ -44,10 +42,13 @@ public class CrimeLocationModel {
     private String crimeMapsLongitude = EMPTY_STRING;
 
     @Getter @Setter
-    private String crimeDescription = EMPTY_STRING;
+    private Set<ImageCrimeLocationModel> imageCrimeLocations;
 
     @Getter @Setter
-    private ArrayList<ImageCrimeLocationModel> imageCrimeLocations;
+    private double distance;
+
+    @Getter @Setter
+    private String distanceUnit;
 
     @Getter @Setter
     private AdminModel createdBy;
@@ -76,7 +77,9 @@ public class CrimeLocationModel {
                                                        CityEntity cityEntity,
                                                        SubDistrictEntity subDistrictEntity,
                                                        UrbanVillageEntity urbanVillageEntity,
-                                                       List<ImageCrimeLocationEntity> imageCrimeLocationEntities,
+                                                       Set<ImageCrimeLocationEntity> imageCrimeLocationEntities,
+                                                       double distance,
+                                                       String distanceUnit,
                                                        AdminEntity createdBy,
                                                        AdminEntity updatedBy) {
         CrimeLocationModel crimeLocation = new CrimeLocationModel();
@@ -104,15 +107,16 @@ public class CrimeLocationModel {
         crimeLocation.setCrimeMapsLatitude(crimeLocationEntity.getCrimeMapsLatitude());
         crimeLocation.setCrimeMapsLongitude(crimeLocationEntity.getCrimeMapsLongitude());
 
-        crimeLocation.setCrimeDescription(crimeLocationEntity.getCrimeDescription());
-
-        ArrayList<ImageCrimeLocationModel> imageCrimeLocationModels = new ArrayList<>();
+        Set<ImageCrimeLocationModel> imageCrimeLocationModels = new HashSet<>();
         for (ImageCrimeLocationEntity imageCrimeLocationEntity : imageCrimeLocationEntities)
         {
             imageCrimeLocationModels.add(new ImageCrimeLocationModel().
                     convertFromEntityToModel(imageCrimeLocationEntity));
         }
         crimeLocation.setImageCrimeLocations(imageCrimeLocationModels);
+
+        crimeLocation.setDistance(distance);
+        crimeLocation.setDistanceUnit(distanceUnit);
 
         if (createdBy != null)
             crimeLocation.setCreatedBy(new AdminModel().convertFromEntityToModel(createdBy));

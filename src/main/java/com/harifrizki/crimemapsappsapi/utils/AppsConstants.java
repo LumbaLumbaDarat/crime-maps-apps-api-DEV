@@ -4,6 +4,7 @@ public class AppsConstants {
     public static final String DATE_FORMAT_FOR_IMAGE_NAME = "yyyyMMddHHmmss";
     public static final String FORMAT_IMAGE_UPLOAD_PNG = ".png";
     public static final String DEFAULT_DISTANCE_UNIT = "Kilometer";
+    public static final double DEFAULT_MAX_NEAREST_DISTANCE = 10.0;
 
     public static final String SERVER_DEVELOPMENT_URL = "spring.development.url";
     public static final String PAGINATION_CONTENT_SIZE_PER_PAGE = "pagination.content.size";
@@ -25,6 +26,7 @@ public class AppsConstants {
     public static final int OPERATION_LOGOUT      = 5;
     public static final int OPERATION_HANDSHAKE   = 6;
     public static final int OPERATION_UTILIZATION = 7;
+    public static final int OPERATION_SELECT_DIST = 8;
 
     public static final String INSERT_FROM_BATCH = "ROOT from BATCH DATA";
 
@@ -63,4 +65,8 @@ public class AppsConstants {
     public static final String ENTITY_CRIME_LOCATION      = "entity.crimelocation";
     public static final String ENTITY_CRIME_LOCATION_ID   = "entity.crimelocation.id";
     public static final String ENTITY_CRIME_LOCATION_NAME = "entity.crimelocation.name";
+
+    public static final String ENTITY_IMAGE_CRIME_LOCATION      = "entity.imagecrimelocation";
+    public static final String ENTITY_IMAGE_CRIME_LOCATION_ID   = "entity.imagecrimelocation.id";
+    public static final String ENTITY_IMAGE_CRIME_LOCATION_NAME = "entity.imagecrimelocation.name";
 }

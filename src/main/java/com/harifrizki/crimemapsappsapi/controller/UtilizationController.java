@@ -44,6 +44,9 @@ public class UtilizationController {
     private UrbanVillageRepository urbanVillageRepository;
 
     @Autowired
+    private CrimeLocationRepository crimeLocationRepository;
+
+    @Autowired
     private ImageServiceImpl uploadImageService;
 
     @Autowired
@@ -243,6 +246,10 @@ public class UtilizationController {
             utilization.setCountUrbanVillage(urbanVillageRepository.count());
             utilization.setCountUrbanVillageToday(urbanVillageRepository.countToday());
             utilization.setCountUrbanVillageMonth(urbanVillageRepository.countMonth());
+
+            utilization.setCountCrimeLocation(crimeLocationRepository.count());
+            utilization.setCountCrimeLocationToday(crimeLocationRepository.countToday());
+            utilization.setCountCrimeLocationMonth(crimeLocationRepository.countMonth());
 
             response.setUtilization(utilization);
 

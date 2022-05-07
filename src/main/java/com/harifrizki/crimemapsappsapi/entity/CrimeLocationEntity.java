@@ -7,7 +7,7 @@ import org.hibernate.annotations.Type;
 
 import javax.persistence.*;
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -62,24 +62,22 @@ public class CrimeLocationEntity {
     private String crimeMapsLongitude = "";
 
     @Getter @Setter
-    @Column(name = "crime_description", columnDefinition="TEXT", nullable = false)
-    private String crimeDescription = "";
+    @OneToMany(mappedBy = "crimeLocation")
+    private Set<ImageCrimeLocationEntity> imageCrimeLocations;
 
     @Getter @Setter
-    @OneToMany(targetEntity = ImageCrimeLocationEntity.class)
-    private List<ImageCrimeLocationEntity> imageCrimeLocationEntities;
-
-    @Getter @Setter
-    @Column(name = "created_by")
-    private UUID createdBy;
+    @ManyToOne(cascade = CascadeType.MERGE)
+    @JoinColumn(name = "created_by")
+    private AdminEntity createdBy = new AdminEntity();
 
     @Getter @Setter
     @Column(name = "created_date", columnDefinition = "TIMESTAMP", nullable = false)
     private LocalDateTime createdDate;
 
     @Getter @Setter
-    @Column(name = "updated_by")
-    private UUID updatedBy;
+    @ManyToOne(cascade = CascadeType.MERGE)
+    @JoinColumn(name = "updated_by")
+    private AdminEntity updatedBy = new AdminEntity();
 
     @Getter @Setter
     @Column(name = "updated_date", columnDefinition = "TIMESTAMP")

@@ -21,28 +21,22 @@ public class ImageCrimeLocationEntity {
     private UUID imageCrimeLocationId;
 
     @Getter @Setter
-    @Column(name="crime_location_id", nullable=false)
-    private UUID crimeLocationId;
+    @ManyToOne(cascade = CascadeType.MERGE)
+    @JoinColumn(name="crime_location_id", nullable=false)
+    private CrimeLocationEntity crimeLocation = new CrimeLocationEntity();
 
     @Getter @Setter
     @Column(name = "image_name", columnDefinition="TEXT", nullable = false)
     private String imageName = "";
 
     @Getter @Setter
-    @Column(name = "created_by")
-    private UUID createdBy;
+    @ManyToOne(cascade = CascadeType.MERGE)
+    @JoinColumn(name = "created_by")
+    private AdminEntity createdBy = new AdminEntity();
 
     @Getter @Setter
     @Column(name = "created_date", columnDefinition = "TIMESTAMP", nullable = false)
     private LocalDateTime createdDate;
-
-    @Getter @Setter
-    @Column(name = "updated_by")
-    private UUID updatedBy;
-
-    @Getter @Setter
-    @Column(name = "updated_date", columnDefinition = "TIMESTAMP")
-    private LocalDateTime updatedDate;
 
     public ImageCrimeLocationEntity() {
     }

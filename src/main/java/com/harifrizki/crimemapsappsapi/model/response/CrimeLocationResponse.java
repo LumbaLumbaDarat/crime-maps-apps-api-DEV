@@ -39,7 +39,7 @@ public class CrimeLocationResponse {
         gsonBuilder.setExclusionStrategies(new ExclusionStrategy() {
             @Override
             public boolean shouldSkipField(FieldAttributes fieldAttributes) {
-                if (operation == OPERATION_SELECT)
+                if (operation == OPERATION_SELECT || operation == OPERATION_SELECT_DIST)
                     return fieldAttributes.getDeclaredClass() == CrimeLocationModel.class;
                 else return false;
             }
@@ -53,6 +53,8 @@ public class CrimeLocationResponse {
                     return aClass == CrimeLocationModel.class ||
                             aClass == List.class ||
                             aClass == PaginationModel.class;
+                else if (operation == OPERATION_SELECT_DIST)
+                    return aClass == PaginationModel.class;
                 else return false;
             }
         });

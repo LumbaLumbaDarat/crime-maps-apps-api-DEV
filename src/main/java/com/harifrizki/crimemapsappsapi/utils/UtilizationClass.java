@@ -136,7 +136,7 @@ public class UtilizationClass {
         RequestBody requestBody;
         for (File file : files)
         {
-            requestBody = RequestBody.create(file, MediaType.parse("image/*"));
+            requestBody = toRequestBody(file);
             parts.add(MultipartBody.Part.createFormData(
                     multipartName,
                     file.getName(),

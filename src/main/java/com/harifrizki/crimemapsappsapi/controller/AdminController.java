@@ -398,24 +398,22 @@ public class AdminController {
                             "Updated Photo Profile Existing",
                             environment.getProperty(ENTITY_ADMIN)));
                 } else {
-                    AdminEntity createdBy = null;
-                    if (existAdmin.getCreatedBy() != null)
-                        createdBy = checkAdminWasExistOrNot(existAdmin.getCreatedBy());
-
                     imageService.setResponseImageService(new ResponseImageService() {
                         @Override
-                        public void onResponse(AdminEntity admin, AdminEntity createdBy, ImageStorageResponse imageStorageResponse) {
-                            super.onResponse(admin, createdBy, imageStorageResponse);
+                        public void onResponse(AdminEntity admin, ImageStorageResponse imageStorageResponse) {
+                            super.onResponse(admin, imageStorageResponse);
                             if (imageStorageResponse.getSuccess())
                             {
                                 admin.setUpdatedBy(updatedBy.getAdminId());
                                 admin.setUpdatedDate(LocalDateTime.now());
 
+                                AdminEntity result = adminRepository.save(existAdmin);
+
                                 response.setAdmin(
                                         new AdminModel().
                                                 convertFromEntityToModel(
-                                                        adminRepository.save(existAdmin),
-                                                        createdBy,
+                                                        result,
+                                                        checkAdminWasExistOrNot(result.getCreatedBy()),
                                                         updatedBy));
 
                                 message.setSuccess(true);
@@ -432,7 +430,7 @@ public class AdminController {
                             }
                         }
                     });
-                    imageService.update(environment, existAdmin, createdBy, photoProfile);
+                    imageService.update(environment, existAdmin, photoProfile);
                 }
             }
         } catch (Exception e) {
