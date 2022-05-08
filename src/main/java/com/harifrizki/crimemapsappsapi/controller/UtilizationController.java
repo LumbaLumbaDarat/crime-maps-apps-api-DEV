@@ -151,7 +151,7 @@ public class UtilizationController {
                                     successProcess(
                                             environment.getProperty(ENTITY_ADMIN),
                                             environment.getProperty(ENTITY_ADMIN_ID),
-                                            String.valueOf(adminEntity.getAdminId()),
+                                            String.valueOf(existAdmin.getAdminId()),
                                             environment.getProperty(ENTITY_ADMIN_USERNAME),
                                             existAdmin.getAdminUsername(),
                                             "Login"));

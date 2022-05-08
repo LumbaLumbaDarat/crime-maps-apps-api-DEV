@@ -196,6 +196,7 @@ public class ImageServiceImpl implements ImageService {
                                          AdminEntity adminEntity,
                                          MultipartFile photoProfile) throws IOException {
         Map<String, RequestBody> map = new HashMap<>();
+        map.put("existPhotoProfile", toRequestBody(adminEntity.getAdminImage()));
         map.put("photoProfile\"; filename=\"" +
                         adminEntity.getAdminId() +
                         ".png\"",

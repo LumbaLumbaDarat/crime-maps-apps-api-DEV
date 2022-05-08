@@ -205,52 +205,60 @@ public class AdminController {
 
         try {
             AdminEntity adminEntity = new Gson().fromJson(jsonAdminEntity, AdminEntity.class);
+            AdminEntity existAdmin = adminRepository.findByUsername(adminEntity.getAdminUsername());
             AdminEntity createdBy = checkAdminWasExistOrNot(adminEntity.getCreatedBy());
 
-            if (createdBy == null)
+            if (existAdmin != null)
             {
                 message.setSuccess(false);
-                message.setMessage(existEntityNotFound(
-                        environment.getProperty(ENTITY_ADMIN),
-                        environment.getProperty(ENTITY_ADMIN_ID),
-                        String.valueOf(adminEntity.getCreatedBy()),
-                        "Created New",
-                        environment.getProperty(ENTITY_ADMIN)));
+                message.setMessage("Failed [Created New] Admin. This Admin was Created at ".
+                        concat(existAdmin.getCreatedDate().toString()));
             } else {
-                adminEntity.setAdminPassword(hashPassword(environment.getProperty(DEFAULT_PASSWORD_ADMIN)));
-                adminEntity.setCreatedDate(LocalDateTime.now());
-                adminEntity.setCreatedBy(createdBy.getAdminId());
+                if (createdBy == null)
+                {
+                    message.setSuccess(false);
+                    message.setMessage(existEntityNotFound(
+                            environment.getProperty(ENTITY_ADMIN),
+                            environment.getProperty(ENTITY_ADMIN_ID),
+                            String.valueOf(adminEntity.getCreatedBy()),
+                            "Created New",
+                            environment.getProperty(ENTITY_ADMIN)));
+                } else {
+                    adminEntity.setAdminPassword(hashPassword(environment.getProperty(DEFAULT_PASSWORD_ADMIN)));
+                    adminEntity.setCreatedDate(LocalDateTime.now());
+                    adminEntity.setCreatedBy(createdBy.getAdminId());
 
-                AdminEntity result = adminRepository.save(adminEntity);
+                    AdminEntity result = adminRepository.save(adminEntity);
 
-                imageService.setResponseImageService(new ResponseImageService() {
-                    @Override
-                    public void onResponse(AdminEntity admin, ImageStorageResponse imageStorageResponse) {
-                        super.onResponse(admin, imageStorageResponse);
-                        if (imageStorageResponse.getSuccess())
-                        {
-                            admin.setAdminImage(imageStorageResponse.getValue());
-                            admin = adminRepository.save(admin);
+                    imageService.setResponseImageService(new ResponseImageService() {
+                        @Override
+                        public void onResponse(AdminEntity admin, ImageStorageResponse imageStorageResponse) {
+                            super.onResponse(admin, imageStorageResponse);
+                            if (imageStorageResponse.getSuccess())
+                            {
+                                admin.setAdminImage(imageStorageResponse.getValue());
+                                admin = adminRepository.save(admin);
 
-                            response.setAdmin(
-                                    new AdminModel().
-                                            convertFromEntityToModel(
-                                                    admin, createdBy, null));
+                                response.setAdmin(
+                                        new AdminModel().
+                                                convertFromEntityToModel(
+                                                        admin, createdBy, null));
 
-                            message.setSuccess(true);
-                            message.setMessage(
-                                    successProcess(
-                                            environment.getProperty(ENTITY_ADMIN),
-                                            "Added New"));
-                        } else {
-                            adminRepository.delete(admin);
+                                message.setSuccess(true);
+                                message.setMessage(
+                                        successProcess(
+                                                environment.getProperty(ENTITY_ADMIN),
+                                                "Added New"));
+                            } else {
+                                adminRepository.delete(admin);
 
-                            message.setSuccess(false);
-                            message.setMessage(imageStorageResponse.getMessage());
+                                message.setSuccess(false);
+                                message.setMessage(imageStorageResponse.getMessage());
+                            }
                         }
-                    }
-                });
-                imageService.upload(environment, result, photoProfile);
+                    });
+                    imageService.upload(environment, result, photoProfile);
+                }
             }
         } catch (Exception e) {
             message.setSuccess(false);
@@ -666,7 +674,7 @@ public class AdminController {
                         super.onResponse(response);
                         if (response.getSuccess())
                         {
-                            adminRepository.delete(adminEntity);
+                            adminRepository.delete(existAdmin);
 
                             message.setSuccess(true);
                             message.setMessage(
