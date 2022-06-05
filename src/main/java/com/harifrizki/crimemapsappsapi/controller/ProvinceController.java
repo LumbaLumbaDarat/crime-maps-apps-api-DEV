@@ -7,6 +7,7 @@ import com.harifrizki.crimemapsappsapi.model.response.GeneralMessageResponse;
 import com.harifrizki.crimemapsappsapi.model.response.ProvinceResponse;
 import com.harifrizki.crimemapsappsapi.repository.AdminRepository;
 import com.harifrizki.crimemapsappsapi.repository.ProvinceRepository;
+import com.harifrizki.crimemapsappsapi.service.ControllerService;
 import com.harifrizki.crimemapsappsapi.service.impl.PaginationServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
@@ -27,9 +28,9 @@ import static com.harifrizki.crimemapsappsapi.utils.UtilizationClass.existEntity
 import static com.harifrizki.crimemapsappsapi.utils.UtilizationClass.successProcess;
 
 @RestController
-@RequestMapping(GENERAL_CONTROLLER_URL)
+@RequestMapping(GENERAL_END_POINT)
 @Validated
-public class ProvinceController {
+public class ProvinceController extends ControllerService {
 
     @Autowired
     private ProvinceRepository provinceRepository;
@@ -43,53 +44,10 @@ public class ProvinceController {
     @Autowired
     private Environment environment;
 
-    @GetMapping(PROVINCE_GET_ALL_CONTROLLER)
-    @ResponseBody
-    private String getAllProvince(@RequestParam int pageNo) {
-        ProvinceResponse response = new ProvinceResponse();
-        GeneralMessageResponse message = new GeneralMessageResponse();
-
-        try {
-            int realPage = pageNo - 1;
-            Pageable pageable = PageRequest.
-                    of(realPage, Integer.parseInt(environment.getProperty(PAGINATION_CONTENT_SIZE_PER_PAGE)),
-                            Sort.by(Sort.Direction.ASC, "provinceName"));
-
-            Page<ProvinceEntity> page = provinceRepository.findAll(pageable);
-            ArrayList<ProvinceEntity> provinceEntities = new ArrayList<>(page.getContent());
-
-            ArrayList<ProvinceModel> provinceModels = new ArrayList<>();
-            for (ProvinceEntity provinceEntity : provinceEntities) {
-                provinceModels.add(new ProvinceModel().
-                        convertFromEntityToModel(
-                                provinceEntity,
-                                provinceEntity.getCreatedBy(),
-                                provinceEntity.getUpdatedBy())
-                );
-            }
-
-            response.setProvinces(provinceModels);
-            response.setPage(paginationService.getPagination(
-                    pageNo, PROVINCE_GET_ALL_CONTROLLER,
-                    page, new String[]{"pageNo"}, new String[]{}));
-
-            message.setSuccess(true);
-            message.setMessage(
-                    successProcess(
-                            SUCCESS_SELECT_ALL,
-                            environment.getProperty(ENTITY_PROVINCE)));
-        } catch (Exception e) {
-            message.setSuccess(false);
-            message.setMessage(e.getMessage());
-        }
-
-        response.setMessage(message);
-        return response.toJson(response, OPERATION_SELECT);
-    }
-
-    @PostMapping(PROVINCE_GET_ALL_SEARCH_NAME_CONTROLLER)
-    private String getAllProvince(@RequestParam int pageNo,
-                                  @Validated @RequestParam("provinceName") String provinceName) {
+    @PostMapping(END_POINT_PROVINCE)
+    private String getAllProvince(@RequestParam String searchBy,
+                                  @RequestParam int pageNo,
+                                  @Validated @RequestBody ProvinceEntity provinceEntity) {
         ProvinceResponse response = new ProvinceResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
@@ -99,23 +57,27 @@ public class ProvinceController {
                     of(realPage, Integer.parseInt(environment.getProperty(PAGINATION_CONTENT_SIZE_PER_PAGE)),
                             Sort.by(Sort.Direction.ASC, "province_name"));
 
-            Page<ProvinceEntity> page = provinceRepository.findByName(pageable, provinceName);
+            Page<ProvinceEntity> page = null;
+            if (searchBy.equalsIgnoreCase(PARAM_NAME))
+                page = provinceRepository.findByName(pageable,
+                        provinceEntity.getProvinceName());
+
             ArrayList<ProvinceEntity> provinceEntities = new ArrayList<>(page.getContent());
 
             ArrayList<ProvinceModel> provinceModels = new ArrayList<>();
-            for (ProvinceEntity provinceEntity : provinceEntities) {
+            for (ProvinceEntity province : provinceEntities) {
                 provinceModels.add(new ProvinceModel().
                         convertFromEntityToModel(
-                                provinceEntity,
-                                provinceEntity.getCreatedBy(),
-                                provinceEntity.getUpdatedBy())
+                                province,
+                                province.getCreatedBy(),
+                                province.getUpdatedBy())
                 );
             }
 
             response.setProvinces(provinceModels);
             response.setPage(paginationService.getPagination(
-                    pageNo, PROVINCE_GET_ALL_SEARCH_NAME_CONTROLLER,
-                    page, new String[]{"pageNo"}, new String[]{}));
+                    pageNo, END_POINT_PROVINCE,
+                    page, new String[]{PARAM_SEARCH_BY, PARAM_PAGE_NO}, new String[]{searchBy}));
 
             message.setSuccess(true);
             message.setMessage(
@@ -131,13 +93,13 @@ public class ProvinceController {
         return response.toJson(response, OPERATION_SELECT);
     }
 
-    @PostMapping(PROVINCE_GET_SEARCH_ID_CONTROLLER)
-    private String getProvince(@Validated @RequestParam("provinceId") UUID provinceId) {
+    @PostMapping(END_POINT_DETAIL_PROVINCE)
+    private String getProvince(@Validated @RequestBody ProvinceEntity provinceEntity) {
         ProvinceResponse response = new ProvinceResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
         try {
-            ProvinceEntity existProvince = checkProvinceWasExistOrNot(provinceId);
+            ProvinceEntity existProvince = checkEntityExistOrNot(provinceEntity);
 
             if (existProvince == null)
             {
@@ -145,7 +107,7 @@ public class ProvinceController {
                 message.setMessage(existEntityNotFound(
                         environment.getProperty(ENTITY_PROVINCE),
                         environment.getProperty(ENTITY_PROVINCE_ID),
-                        String.valueOf(provinceId)));
+                        String.valueOf(provinceEntity.getProvinceId())));
             } else {
                 response.setProvince(new ProvinceModel().
                         convertFromEntityToModel(
@@ -168,13 +130,13 @@ public class ProvinceController {
         return response.toJson(response, OPERATION_CRU);
     }
 
-    @PostMapping(PROVINCE_ADD_CONTROLLER)
+    @PostMapping(END_POINT_ADD_PROVINCE)
     private String add(@Validated @RequestBody ProvinceEntity provinceEntity) {
         ProvinceResponse response = new ProvinceResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
         try {
-            AdminEntity createdBy = checkAdminWasExistOrNot(provinceEntity.getCreatedBy().getAdminId());
+            AdminEntity createdBy = checkEntityExistOrNot(provinceEntity.getCreatedBy().getAdminId());
 
             if (createdBy == null)
             {
@@ -183,7 +145,7 @@ public class ProvinceController {
                         environment.getProperty(ENTITY_ADMIN),
                         environment.getProperty(ENTITY_ADMIN_ID),
                         String.valueOf(provinceEntity.getCreatedBy().getAdminId()),
-                        "Created New",
+                        environment.getProperty(OPERATION_NAME_CREATE),
                         environment.getProperty(ENTITY_PROVINCE)));
             } else {
                 provinceEntity.setCreatedBy(createdBy);
@@ -202,7 +164,7 @@ public class ProvinceController {
                 message.setMessage(
                         successProcess(
                                 environment.getProperty(ENTITY_PROVINCE),
-                                "Added New"
+                                environment.getProperty(OPERATION_NAME_CREATE)
                         ));
             }
         } catch (Exception e) {
@@ -214,13 +176,13 @@ public class ProvinceController {
         return response.toJson(response, OPERATION_CRU);
     }
 
-    @PostMapping(PROVINCE_UPDATE_CONTROLLER)
+    @PostMapping(END_POINT_UPDATE_PROVINCE)
     private String update(@Validated @RequestBody ProvinceEntity provinceEntity) {
         ProvinceResponse response = new ProvinceResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
         try {
-            ProvinceEntity existProvince = checkProvinceWasExistOrNot(provinceEntity.getProvinceId());
+            ProvinceEntity existProvince = checkEntityExistOrNot(provinceEntity);
 
             if (existProvince == null)
             {
@@ -230,7 +192,7 @@ public class ProvinceController {
                         environment.getProperty(ENTITY_PROVINCE_ID),
                         String.valueOf(provinceEntity.getProvinceId())));
             } else {
-                AdminEntity updatedBy = checkAdminWasExistOrNot(provinceEntity.getUpdatedBy().getAdminId());
+                AdminEntity updatedBy = checkEntityExistOrNot(provinceEntity.getUpdatedBy().getAdminId());
 
                 if (updatedBy == null)
                 {
@@ -239,7 +201,7 @@ public class ProvinceController {
                             environment.getProperty(ENTITY_ADMIN),
                             environment.getProperty(ENTITY_ADMIN_ID),
                             String.valueOf(provinceEntity.getUpdatedBy().getAdminId()),
-                            "Updated Existing",
+                            environment.getProperty(OPERATION_NAME_UPDATE),
                             environment.getProperty(ENTITY_PROVINCE)));
                 } else {
                     existProvince.setProvinceName(provinceEntity.getProvinceName());
@@ -262,7 +224,7 @@ public class ProvinceController {
                                     String.valueOf(existProvince.getProvinceId()),
                                     environment.getProperty(ENTITY_PROVINCE_NAME),
                                     existProvince.getProvinceName(),
-                                    "Updated"));
+                                    environment.getProperty(OPERATION_NAME_UPDATE)));
                 }
             }
         } catch (Exception e) {
@@ -274,13 +236,13 @@ public class ProvinceController {
         return response.toJson(response, OPERATION_CRU);
     }
 
-    @PostMapping(PROVINCE_DELETE_CONTROLLER)
+    @PostMapping(END_POINT_DELETE_PROVINCE)
     private String delete(@Validated @RequestBody ProvinceEntity provinceEntity) {
         ProvinceResponse response = new ProvinceResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
         try {
-            ProvinceEntity existProvince = checkProvinceWasExistOrNot(provinceEntity.getProvinceId());
+            ProvinceEntity existProvince = checkEntityExistOrNot(provinceEntity);
 
             if (existProvince == null)
             {
@@ -298,7 +260,7 @@ public class ProvinceController {
                                 String.valueOf(existProvince.getProvinceId()),
                                 environment.getProperty(ENTITY_PROVINCE_NAME),
                                 existProvince.getProvinceName(),
-                                "Deleted"));
+                                environment.getProperty(OPERATION_NAME_DELETE)));
 
                 provinceRepository.delete(existProvince);
             }
@@ -311,11 +273,13 @@ public class ProvinceController {
         return response.toJson(response, OPERATION_DELETE);
     }
 
-    private AdminEntity checkAdminWasExistOrNot(UUID adminId) {
+    @Override
+    public AdminEntity checkEntityExistOrNot(UUID adminId) {
         return adminRepository.findById(adminId).orElse(null);
     }
 
-    private ProvinceEntity checkProvinceWasExistOrNot(UUID provinceId) {
-        return  provinceRepository.findById(provinceId).orElse(null);
+    @Override
+    public ProvinceEntity checkEntityExistOrNot(ProvinceEntity provinceEntity) {
+        return  provinceRepository.findById(provinceEntity.getProvinceId()).orElse(null);
     }
 }

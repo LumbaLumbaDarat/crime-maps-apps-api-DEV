@@ -22,6 +22,16 @@ public class UrbanVillageEntity {
 
     @Getter @Setter
     @ManyToOne(cascade = CascadeType.MERGE)
+    @JoinColumn(name = "province_id")
+    private ProvinceEntity province = new ProvinceEntity();
+
+    @Getter @Setter
+    @ManyToOne(cascade = CascadeType.MERGE)
+    @JoinColumn(name = "city_id")
+    private CityEntity city = new CityEntity();
+
+    @Getter @Setter
+    @ManyToOne(cascade = CascadeType.MERGE)
     @JoinColumn(name = "sub_district_id")
     private SubDistrictEntity subDistrict = new SubDistrictEntity();
 

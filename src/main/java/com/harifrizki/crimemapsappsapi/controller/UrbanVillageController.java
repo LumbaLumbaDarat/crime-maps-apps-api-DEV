@@ -1,17 +1,11 @@
 package com.harifrizki.crimemapsappsapi.controller;
 
-import com.harifrizki.crimemapsappsapi.entity.AdminEntity;
-import com.harifrizki.crimemapsappsapi.entity.CityEntity;
-import com.harifrizki.crimemapsappsapi.entity.SubDistrictEntity;
-import com.harifrizki.crimemapsappsapi.entity.UrbanVillageEntity;
-import com.harifrizki.crimemapsappsapi.model.SubDistrictModel;
+import com.harifrizki.crimemapsappsapi.entity.*;
 import com.harifrizki.crimemapsappsapi.model.UrbanVillageModel;
 import com.harifrizki.crimemapsappsapi.model.response.GeneralMessageResponse;
-import com.harifrizki.crimemapsappsapi.model.response.SubDistrictResponse;
 import com.harifrizki.crimemapsappsapi.model.response.UrbanVillageResponse;
-import com.harifrizki.crimemapsappsapi.repository.AdminRepository;
-import com.harifrizki.crimemapsappsapi.repository.SubDistrictRepository;
-import com.harifrizki.crimemapsappsapi.repository.UrbanVillageRepository;
+import com.harifrizki.crimemapsappsapi.repository.*;
+import com.harifrizki.crimemapsappsapi.service.ControllerService;
 import com.harifrizki.crimemapsappsapi.service.impl.PaginationServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
@@ -32,12 +26,18 @@ import static com.harifrizki.crimemapsappsapi.utils.UtilizationClass.existEntity
 import static com.harifrizki.crimemapsappsapi.utils.UtilizationClass.successProcess;
 
 @RestController
-@RequestMapping(GENERAL_CONTROLLER_URL)
+@RequestMapping(GENERAL_END_POINT)
 @Validated
-public class UrbanVillageController {
+public class UrbanVillageController extends ControllerService {
 
     @Autowired
     private UrbanVillageRepository urbanVillageRepository;
+
+    @Autowired
+    private ProvinceRepository provinceRepository;
+
+    @Autowired
+    private CityRepository cityRepository;
 
     @Autowired
     private SubDistrictRepository subDistrictRepository;
@@ -51,54 +51,10 @@ public class UrbanVillageController {
     @Autowired
     private Environment environment;
 
-    @GetMapping(URBAN_VILLAGE_GET_ALL_CONTROLLER)
-    @ResponseBody
-    private String getAllUrbanVillage(@RequestParam int pageNo) {
-        UrbanVillageResponse response = new UrbanVillageResponse();
-        GeneralMessageResponse message = new GeneralMessageResponse();
-
-        try {
-            int realPage = pageNo - 1;
-            Pageable pageable = PageRequest.
-                    of(realPage, Integer.parseInt(environment.getProperty(PAGINATION_CONTENT_SIZE_PER_PAGE)),
-                            Sort.by(Sort.Direction.ASC, "urbanVillageName"));
-
-            Page<UrbanVillageEntity> page = urbanVillageRepository.findAll(pageable);
-            ArrayList<UrbanVillageEntity> urbanVillageEntities = new ArrayList<>(page.getContent());
-
-            ArrayList<UrbanVillageModel> urbanVillageModels = new ArrayList<>();
-            for (UrbanVillageEntity urbanVillageEntity : urbanVillageEntities) {
-                urbanVillageModels.add(new UrbanVillageModel().
-                        convertFromEntityToModel(
-                                urbanVillageEntity,
-                                urbanVillageEntity.getSubDistrict(),
-                                urbanVillageEntity.getCreatedBy(),
-                                urbanVillageEntity.getUpdatedBy())
-                );
-            }
-
-            response.setUrbanVillages(urbanVillageModels);
-            response.setPage(paginationService.getPagination(
-                    pageNo, URBAN_VILLAGE_GET_ALL_CONTROLLER,
-                    page, new String[]{"pageNo"}, new String[]{}));
-
-            message.setSuccess(true);
-            message.setMessage(
-                    successProcess(
-                            SUCCESS_SELECT_ALL,
-                            environment.getProperty(ENTITY_URBAN_VILLAGE)));
-        } catch (Exception e) {
-            message.setSuccess(false);
-            message.setMessage(e.getMessage());
-        }
-
-        response.setMessage(message);
-        return response.toJson(response, OPERATION_SELECT);
-    }
-
-    @PostMapping(URBAN_VILLAGE_GET_ALL_SEARCH_NAME_CONTROLLER)
-    private String getAllUrbanVillage(@RequestParam int pageNo,
-                                      @Validated @RequestParam("urbanVillageName") String urbanVillageName) {
+    @PostMapping(END_POINT_URBAN_VILLAGE)
+    private String getAllUrbanVillage(@RequestParam String searchBy,
+                                      @RequestParam int pageNo,
+                                      @Validated @RequestBody UrbanVillageEntity urbanVillageEntity) {
         UrbanVillageResponse response = new UrbanVillageResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
@@ -108,24 +64,97 @@ public class UrbanVillageController {
                     of(realPage, Integer.parseInt(environment.getProperty(PAGINATION_CONTENT_SIZE_PER_PAGE)),
                             Sort.by(Sort.Direction.ASC, "urban_village_name"));
 
-            Page<UrbanVillageEntity> page = urbanVillageRepository.findByName(pageable, urbanVillageName);
+            Page<UrbanVillageEntity> page = null;
+            switch (searchBy)
+            {
+                case PARAM_NAME:
+                    page = urbanVillageRepository.findByName(
+                            pageable,
+                            urbanVillageEntity.getUrbanVillageName());
+                    break;
+                case PARAM_PROVINCE_ID:
+                    ProvinceEntity existProvince = checkEntityExistOrNot(
+                            urbanVillageEntity.getProvince());
+
+                    if (existProvince == null)
+                    {
+                        message.setSuccess(false);
+                        message.setMessage(existEntityNotFound(
+                                environment.getProperty(ENTITY_PROVINCE),
+                                environment.getProperty(ENTITY_PROVINCE_ID),
+                                String.valueOf(urbanVillageEntity.getProvince().getProvinceId()),
+                                environment.getProperty(OPERATION_NAME_READ_ALL),
+                                environment.getProperty(ENTITY_URBAN_VILLAGE)));
+
+                        response.setMessage(message);
+                        return response.toJson(response, OPERATION_SELECT);
+                    } else page = urbanVillageRepository.findByProvinceId(
+                            pageable,
+                            urbanVillageEntity.getProvince().getProvinceId(),
+                            urbanVillageEntity.getUrbanVillageName());
+                    break;
+                case PARAM_CITY_ID:
+                    CityEntity existCity = checkEntityExistOrNot(urbanVillageEntity.getCity());
+
+                    if (existCity == null)
+                    {
+                        message.setSuccess(false);
+                        message.setMessage(existEntityNotFound(
+                                environment.getProperty(ENTITY_CITY),
+                                environment.getProperty(ENTITY_CITY_ID),
+                                String.valueOf(urbanVillageEntity.getCity().getCityId()),
+                                environment.getProperty(OPERATION_NAME_READ_ALL),
+                                environment.getProperty(ENTITY_URBAN_VILLAGE)));
+
+                        response.setMessage(message);
+                        return response.toJson(response, OPERATION_SELECT);
+                    } else page = urbanVillageRepository.findByCityId(
+                            pageable,
+                            urbanVillageEntity.getCity().getCityId(),
+                            urbanVillageEntity.getUrbanVillageName());
+                    break;
+                case PARAM_SUB_DISTRICT_ID:
+                    SubDistrictEntity existSubDistrict = checkEntityExistOrNot(
+                            urbanVillageEntity.getSubDistrict());
+
+                    if (existSubDistrict == null)
+                    {
+                        message.setSuccess(false);
+                        message.setMessage(existEntityNotFound(
+                                environment.getProperty(ENTITY_SUB_DISTRICT),
+                                environment.getProperty(ENTITY_SUB_DISTRICT_ID),
+                                String.valueOf(urbanVillageEntity.getSubDistrict().getSubDistrictId()),
+                                environment.getProperty(OPERATION_NAME_READ_ALL),
+                                environment.getProperty(ENTITY_URBAN_VILLAGE)));
+
+                        response.setMessage(message);
+                        return response.toJson(response, OPERATION_SELECT);
+                    } else page = urbanVillageRepository.findBySubDistrictId(
+                            pageable,
+                            urbanVillageEntity.getSubDistrict().getSubDistrictId(),
+                            urbanVillageEntity.getUrbanVillageName());
+                    break;
+            }
+
             ArrayList<UrbanVillageEntity> urbanVillageEntities = new ArrayList<>(page.getContent());
 
             ArrayList<UrbanVillageModel> urbanVillageModels = new ArrayList<>();
-            for (UrbanVillageEntity urbanVillageEntity : urbanVillageEntities) {
+            for (UrbanVillageEntity urbanVillage : urbanVillageEntities) {
                 urbanVillageModels.add(new UrbanVillageModel().
                         convertFromEntityToModel(
-                                urbanVillageEntity,
-                                urbanVillageEntity.getSubDistrict(),
-                                urbanVillageEntity.getCreatedBy(),
-                                urbanVillageEntity.getUpdatedBy())
+                                urbanVillage,
+                                urbanVillage.getProvince(),
+                                urbanVillage.getCity(),
+                                urbanVillage.getSubDistrict(),
+                                urbanVillage.getCreatedBy(),
+                                urbanVillage.getUpdatedBy())
                 );
             }
 
             response.setUrbanVillages(urbanVillageModels);
             response.setPage(paginationService.getPagination(
-                    pageNo, URBAN_VILLAGE_GET_ALL_SEARCH_NAME_CONTROLLER,
-                    page, new String[]{"pageNo"}, new String[]{}));
+                    pageNo, END_POINT_URBAN_VILLAGE,
+                    page, new String[]{PARAM_SEARCH_BY, PARAM_PAGE_NO}, new String[]{searchBy}));
 
             message.setSuccess(true);
             message.setMessage(
@@ -141,75 +170,14 @@ public class UrbanVillageController {
         return response.toJson(response, OPERATION_SELECT);
     }
 
-    @PostMapping(URBAN_VILLAGE_GET_ALL_SEARCH_SUB_DISTRICT_ID_CONTROLLER)
-    private String getAllSubDistrict(@RequestParam int pageNo,
-                                     @Validated @RequestBody UrbanVillageEntity urbanVillageEntity) {
+    @PostMapping(END_POINT_DETAIL_URBAN_VILLAGE)
+    private String getUrbanVillage(@Validated @RequestBody UrbanVillageEntity urbanVillageEntity) {
         UrbanVillageResponse response = new UrbanVillageResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
         try {
-            SubDistrictEntity existSubDistrict = checkSubDistrictWasExistOrNot(
-                    urbanVillageEntity.getSubDistrict().getSubDistrictId());
-
-            if (existSubDistrict == null)
-            {
-                message.setSuccess(false);
-                message.setMessage(existEntityNotFound(
-                        environment.getProperty(ENTITY_SUB_DISTRICT),
-                        environment.getProperty(ENTITY_SUB_DISTRICT_ID),
-                        String.valueOf(urbanVillageEntity.getSubDistrict().getSubDistrictId()),
-                        "Get All",
-                        environment.getProperty(ENTITY_URBAN_VILLAGE)));
-            } else {
-                int realPage = pageNo - 1;
-                Pageable pageable = PageRequest.
-                        of(realPage, Integer.parseInt(environment.getProperty(PAGINATION_CONTENT_SIZE_PER_PAGE)),
-                                Sort.by(Sort.Direction.ASC, "urban_village_name"));
-
-                Page<UrbanVillageEntity> page = urbanVillageRepository.findBySubDistrictId(
-                        pageable,
-                        existSubDistrict.getSubDistrictId(),
-                        urbanVillageEntity.getUrbanVillageName());
-                ArrayList<UrbanVillageEntity> urbanVillageEntities = new ArrayList<>(page.getContent());
-
-                ArrayList<UrbanVillageModel> urbanVillageModels = new ArrayList<>();
-                for (UrbanVillageEntity urbanVillage : urbanVillageEntities) {
-                    urbanVillageModels.add(new UrbanVillageModel().
-                            convertFromEntityToModel(
-                                    urbanVillage,
-                                    urbanVillage.getSubDistrict(),
-                                    urbanVillage.getCreatedBy(),
-                                    urbanVillage.getUpdatedBy())
-                    );
-                }
-
-                response.setUrbanVillages(urbanVillageModels);
-                response.setPage(paginationService.getPagination(
-                        pageNo, URBAN_VILLAGE_GET_ALL_SEARCH_SUB_DISTRICT_ID_CONTROLLER,
-                        page, new String[]{"pageNo"}, new String[]{}));
-
-                message.setSuccess(true);
-                message.setMessage(
-                        successProcess(
-                                SUCCESS_SELECT_ALL,
-                                environment.getProperty(ENTITY_URBAN_VILLAGE)));
-            }
-        } catch (Exception e) {
-            message.setSuccess(false);
-            message.setMessage(e.getMessage());
-        }
-
-        response.setMessage(message);
-        return response.toJson(response, OPERATION_SELECT);
-    }
-
-    @PostMapping(URBAN_VILLAGE_GET_SEARCH_ID_CONTROLLER)
-    private String getUrbanVillage(@Validated @RequestParam("urbanVillageId") UUID urbanVillageId) {
-        UrbanVillageResponse response = new UrbanVillageResponse();
-        GeneralMessageResponse message = new GeneralMessageResponse();
-
-        try {
-            UrbanVillageEntity existUrbanVillage = checkUrbanVillageDistrictWasExistOrNot(urbanVillageId);
+            UrbanVillageEntity existUrbanVillage = checkEntityExistOrNot(
+                    urbanVillageEntity);
 
             if (existUrbanVillage == null)
             {
@@ -217,11 +185,13 @@ public class UrbanVillageController {
                 message.setMessage(existEntityNotFound(
                         environment.getProperty(ENTITY_URBAN_VILLAGE),
                         environment.getProperty(ENTITY_URBAN_VILLAGE_ID),
-                        String.valueOf(urbanVillageId)));
+                        String.valueOf(urbanVillageEntity.getUrbanVillageId())));
             } else {
                 response.setUrbanVillage(new UrbanVillageModel().
                         convertFromEntityToModel(
                                 existUrbanVillage,
+                                existUrbanVillage.getProvince(),
+                                existUrbanVillage.getCity(),
                                 existUrbanVillage.getSubDistrict(),
                                 existUrbanVillage.getCreatedBy(),
                                 existUrbanVillage.getUpdatedBy()));
@@ -241,13 +211,13 @@ public class UrbanVillageController {
         return response.toJson(response, OPERATION_CRU);
     }
 
-    @PostMapping(URBAN_VILLAGE_ADD_CONTROLLER)
+    @PostMapping(END_POINT_ADD_URBAN_VILLAGE)
     private String add(@Validated @RequestBody UrbanVillageEntity urbanVillageEntity) {
         UrbanVillageResponse response = new UrbanVillageResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
         try {
-            AdminEntity createdBy = checkAdminWasExistOrNot(urbanVillageEntity.getCreatedBy().getAdminId());
+            AdminEntity createdBy = checkEntityExistOrNot(urbanVillageEntity.getCreatedBy().getAdminId());
 
             if (createdBy == null)
             {
@@ -256,115 +226,70 @@ public class UrbanVillageController {
                         environment.getProperty(ENTITY_ADMIN),
                         environment.getProperty(ENTITY_ADMIN_ID),
                         String.valueOf(urbanVillageEntity.getCreatedBy().getAdminId()),
-                        "Created New",
+                        environment.getProperty(OPERATION_NAME_CREATE),
                         environment.getProperty(ENTITY_URBAN_VILLAGE)));
             } else {
-                SubDistrictEntity subDistrict = checkSubDistrictWasExistOrNot(urbanVillageEntity.getSubDistrict().getSubDistrictId());
+                ProvinceEntity province = checkEntityExistOrNot(urbanVillageEntity.getProvince());
 
-                if (subDistrict == null)
+                if (province == null)
                 {
                     message.setSuccess(false);
                     message.setMessage(existEntityNotFound(
-                            environment.getProperty(ENTITY_SUB_DISTRICT),
-                            environment.getProperty(ENTITY_SUB_DISTRICT_ID),
-                            String.valueOf(urbanVillageEntity.getSubDistrict().getSubDistrictId()),
-                            "Created New",
+                            environment.getProperty(ENTITY_PROVINCE),
+                            environment.getProperty(ENTITY_PROVINCE_ID),
+                            String.valueOf(urbanVillageEntity.getProvince().getProvinceId()),
+                            environment.getProperty(OPERATION_NAME_CREATE),
                             environment.getProperty(ENTITY_URBAN_VILLAGE)));
                 } else {
-                    urbanVillageEntity.setSubDistrict(subDistrict);
-                    urbanVillageEntity.setCreatedBy(createdBy);
-                    urbanVillageEntity.setCreatedDate(LocalDateTime.now());
-                    urbanVillageEntity.setUpdatedBy(null);
+                    CityEntity city = checkEntityExistOrNot(urbanVillageEntity.getCity());
 
-                    UrbanVillageEntity result = urbanVillageRepository.save(urbanVillageEntity);
-
-                    response.setUrbanVillage(new UrbanVillageModel().
-                            convertFromEntityToModel(
-                                    result,
-                                    result.getSubDistrict(),
-                                    result.getCreatedBy(),
-                                    result.getUpdatedBy()));
-
-                    message.setSuccess(true);
-                    message.setMessage(successProcess(
-                            environment.getProperty(ENTITY_URBAN_VILLAGE),
-                            "Added New"
-                    ));
-                }
-            }
-        } catch (Exception e) {
-            message.setSuccess(false);
-            message.setMessage(e.getMessage());
-        }
-
-        response.setMessage(message);
-        return response.toJson(response, OPERATION_CRU);
-    }
-
-    @PostMapping(URBAN_VILLAGE_UPDATE_CONTROLLER)
-    private String update(@Validated @RequestBody UrbanVillageEntity urbanVillageEntity) {
-        UrbanVillageResponse response = new UrbanVillageResponse();
-        GeneralMessageResponse message = new GeneralMessageResponse();
-
-        try {
-            UrbanVillageEntity existUrbanVillage = checkUrbanVillageDistrictWasExistOrNot(
-                    urbanVillageEntity.getUrbanVillageId());
-
-            if (existUrbanVillage == null)
-            {
-                message.setSuccess(false);
-                message.setMessage(existEntityNotFound(
-                        environment.getProperty(ENTITY_URBAN_VILLAGE),
-                        environment.getProperty(ENTITY_URBAN_VILLAGE_ID),
-                        String.valueOf(urbanVillageEntity.getUrbanVillageId())));
-            } else {
-                SubDistrictEntity existSubDistrict = checkSubDistrictWasExistOrNot(
-                        urbanVillageEntity.getSubDistrict().getSubDistrictId());
-
-                if (existSubDistrict == null)
-                {
-                    message.setSuccess(false);
-                    message.setMessage(existEntityNotFound(
-                            environment.getProperty(ENTITY_SUB_DISTRICT),
-                            environment.getProperty(ENTITY_SUB_DISTRICT_ID),
-                            String.valueOf(urbanVillageEntity.getSubDistrict().getSubDistrictId()),
-                            "Updated Existing",
-                            environment.getProperty(ENTITY_URBAN_VILLAGE)));
-                } else {
-                    AdminEntity updatedBy = checkAdminWasExistOrNot(urbanVillageEntity.getUpdatedBy().getAdminId());
-
-                    if (updatedBy == null)
+                    if (city == null)
                     {
+                        message.setSuccess(false);
                         message.setMessage(existEntityNotFound(
-                                environment.getProperty(ENTITY_ADMIN),
-                                environment.getProperty(ENTITY_ADMIN_ID),
-                                String.valueOf(urbanVillageEntity.getUpdatedBy().getAdminId()),
-                                "Updated Existing",
+                                environment.getProperty(ENTITY_CITY),
+                                environment.getProperty(ENTITY_CITY_ID),
+                                String.valueOf(urbanVillageEntity.getCity().getCityId()),
+                                environment.getProperty(OPERATION_NAME_CREATE),
                                 environment.getProperty(ENTITY_URBAN_VILLAGE)));
                     } else {
-                        existUrbanVillage.setUrbanVillageName(urbanVillageEntity.getUrbanVillageName());
-                        existUrbanVillage.setSubDistrict(existSubDistrict);
-                        existUrbanVillage.setUpdatedBy(updatedBy);
-                        existUrbanVillage.setUpdatedDate(LocalDateTime.now());
+                        SubDistrictEntity subDistrict = checkEntityExistOrNot(
+                                urbanVillageEntity.getSubDistrict());
 
-                        UrbanVillageEntity result = urbanVillageRepository.save(existUrbanVillage);
+                        if (subDistrict == null)
+                        {
+                            message.setSuccess(false);
+                            message.setMessage(existEntityNotFound(
+                                    environment.getProperty(ENTITY_SUB_DISTRICT),
+                                    environment.getProperty(ENTITY_SUB_DISTRICT_ID),
+                                    String.valueOf(urbanVillageEntity.getSubDistrict().getSubDistrictId()),
+                                    environment.getProperty(OPERATION_NAME_CREATE),
+                                    environment.getProperty(ENTITY_URBAN_VILLAGE)));
+                        } else {
+                            urbanVillageEntity.setProvince(province);
+                            urbanVillageEntity.setCity(city);
+                            urbanVillageEntity.setSubDistrict(subDistrict);
+                            urbanVillageEntity.setCreatedBy(createdBy);
+                            urbanVillageEntity.setCreatedDate(LocalDateTime.now());
+                            urbanVillageEntity.setUpdatedBy(null);
 
-                        response.setUrbanVillage(new UrbanVillageModel().
-                                convertFromEntityToModel(
-                                        result,
-                                        result.getSubDistrict(),
-                                        result.getCreatedBy(),
-                                        result.getUpdatedBy()));
+                            UrbanVillageEntity result = urbanVillageRepository.save(urbanVillageEntity);
 
-                        message.setSuccess(true);
-                        message.setMessage(
-                                successProcess(
-                                        environment.getProperty(ENTITY_URBAN_VILLAGE),
-                                        environment.getProperty(ENTITY_URBAN_VILLAGE_ID),
-                                        String.valueOf(existUrbanVillage.getUrbanVillageId()),
-                                        environment.getProperty(ENTITY_URBAN_VILLAGE_NAME),
-                                        existUrbanVillage.getUrbanVillageName(),
-                                        "Updated"));
+                            response.setUrbanVillage(new UrbanVillageModel().
+                                    convertFromEntityToModel(
+                                            result,
+                                            result.getProvince(),
+                                            result.getCity(),
+                                            result.getSubDistrict(),
+                                            result.getCreatedBy(),
+                                            result.getUpdatedBy()));
+
+                            message.setSuccess(true);
+                            message.setMessage(successProcess(
+                                    environment.getProperty(ENTITY_URBAN_VILLAGE),
+                                    environment.getProperty(OPERATION_NAME_CREATE)
+                            ));
+                        }
                     }
                 }
             }
@@ -377,14 +302,123 @@ public class UrbanVillageController {
         return response.toJson(response, OPERATION_CRU);
     }
 
-    @PostMapping(URBAN_VILLAGE_DELETE_CONTROLLER)
+    @PostMapping(END_POINT_UPDATE_URBAN_VILLAGE)
+    private String update(@Validated @RequestBody UrbanVillageEntity urbanVillageEntity) {
+        UrbanVillageResponse response = new UrbanVillageResponse();
+        GeneralMessageResponse message = new GeneralMessageResponse();
+
+        try {
+            UrbanVillageEntity existUrbanVillage = checkEntityExistOrNot(
+                    urbanVillageEntity);
+
+            if (existUrbanVillage == null)
+            {
+                message.setSuccess(false);
+                message.setMessage(existEntityNotFound(
+                        environment.getProperty(ENTITY_URBAN_VILLAGE),
+                        environment.getProperty(ENTITY_URBAN_VILLAGE_ID),
+                        String.valueOf(urbanVillageEntity.getUrbanVillageId())));
+            } else {
+                ProvinceEntity existProvince = checkEntityExistOrNot(
+                        urbanVillageEntity.getProvince());
+
+                if (existProvince == null)
+                {
+                    message.setSuccess(false);
+                    message.setMessage(existEntityNotFound(
+                            environment.getProperty(ENTITY_PROVINCE),
+                            environment.getProperty(ENTITY_PROVINCE_ID),
+                            String.valueOf(urbanVillageEntity.getProvince().getProvinceId()),
+                            environment.getProperty(OPERATION_NAME_UPDATE),
+                            environment.getProperty(ENTITY_URBAN_VILLAGE)));
+                } else {
+                    CityEntity existCity = checkEntityExistOrNot(
+                            urbanVillageEntity.getCity());
+
+                    if (existCity == null)
+                    {
+                        message.setSuccess(false);
+                        message.setMessage(existEntityNotFound(
+                                environment.getProperty(ENTITY_CITY),
+                                environment.getProperty(ENTITY_CITY_ID),
+                                String.valueOf(urbanVillageEntity.getCity().getCityId()),
+                                environment.getProperty(OPERATION_NAME_UPDATE),
+                                environment.getProperty(ENTITY_URBAN_VILLAGE)));
+                    } else {
+                        SubDistrictEntity existSubDistrict = checkEntityExistOrNot(
+                                urbanVillageEntity.getSubDistrict());
+
+                        if (existSubDistrict == null)
+                        {
+                            message.setSuccess(false);
+                            message.setMessage(existEntityNotFound(
+                                    environment.getProperty(ENTITY_SUB_DISTRICT),
+                                    environment.getProperty(ENTITY_SUB_DISTRICT_ID),
+                                    String.valueOf(urbanVillageEntity.getSubDistrict().getSubDistrictId()),
+                                    environment.getProperty(OPERATION_NAME_UPDATE),
+                                    environment.getProperty(ENTITY_URBAN_VILLAGE)));
+                        } else {
+                            AdminEntity updatedBy = checkEntityExistOrNot(
+                                    urbanVillageEntity.getUpdatedBy().getAdminId());
+
+                            if (updatedBy == null)
+                            {
+                                message.setMessage(existEntityNotFound(
+                                        environment.getProperty(ENTITY_ADMIN),
+                                        environment.getProperty(ENTITY_ADMIN_ID),
+                                        String.valueOf(urbanVillageEntity.getUpdatedBy().getAdminId()),
+                                        environment.getProperty(OPERATION_NAME_UPDATE),
+                                        environment.getProperty(ENTITY_URBAN_VILLAGE)));
+                            } else {
+                                existUrbanVillage.setUrbanVillageName(urbanVillageEntity.getUrbanVillageName());
+                                existUrbanVillage.setProvince(existProvince);
+                                existUrbanVillage.setCity(existCity);
+                                existUrbanVillage.setSubDistrict(existSubDistrict);
+                                existUrbanVillage.setUpdatedBy(updatedBy);
+                                existUrbanVillage.setUpdatedDate(LocalDateTime.now());
+
+                                UrbanVillageEntity result = urbanVillageRepository.save(existUrbanVillage);
+
+                                response.setUrbanVillage(new UrbanVillageModel().
+                                        convertFromEntityToModel(
+                                                result,
+                                                result.getProvince(),
+                                                result.getCity(),
+                                                result.getSubDistrict(),
+                                                result.getCreatedBy(),
+                                                result.getUpdatedBy()));
+
+                                message.setSuccess(true);
+                                message.setMessage(
+                                        successProcess(
+                                                environment.getProperty(ENTITY_URBAN_VILLAGE),
+                                                environment.getProperty(ENTITY_URBAN_VILLAGE_ID),
+                                                String.valueOf(existUrbanVillage.getUrbanVillageId()),
+                                                environment.getProperty(ENTITY_URBAN_VILLAGE_NAME),
+                                                existUrbanVillage.getUrbanVillageName(),
+                                                environment.getProperty(OPERATION_NAME_UPDATE)));
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            message.setSuccess(false);
+            message.setMessage(e.getMessage());
+        }
+
+        response.setMessage(message);
+        return response.toJson(response, OPERATION_CRU);
+    }
+
+    @PostMapping(END_POINT_DELETE_URBAN_VILLAGE)
     private String delete(@Validated @RequestBody UrbanVillageEntity urbanVillageEntity) {
         UrbanVillageResponse response = new UrbanVillageResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
         try {
-            UrbanVillageEntity existUrbanVillage = checkUrbanVillageDistrictWasExistOrNot(
-                    urbanVillageEntity.getUrbanVillageId());
+            UrbanVillageEntity existUrbanVillage = checkEntityExistOrNot(
+                    urbanVillageEntity);
 
             if (existUrbanVillage == null)
             {
@@ -402,7 +436,7 @@ public class UrbanVillageController {
                                 String.valueOf(existUrbanVillage.getUrbanVillageId()),
                                 environment.getProperty(ENTITY_URBAN_VILLAGE_NAME),
                                 existUrbanVillage.getUrbanVillageName(),
-                                "Deleted"));
+                                environment.getProperty(OPERATION_NAME_DELETE)));
 
                 urbanVillageRepository.delete(existUrbanVillage);
             }
@@ -415,15 +449,28 @@ public class UrbanVillageController {
         return response.toJson(response, OPERATION_DELETE);
     }
 
-    private AdminEntity checkAdminWasExistOrNot(UUID adminId) {
+    @Override
+    public AdminEntity checkEntityExistOrNot(UUID adminId) {
         return adminRepository.findById(adminId).orElse(null);
     }
 
-    private SubDistrictEntity checkSubDistrictWasExistOrNot(UUID subDistrictId) {
-        return subDistrictRepository.findById(subDistrictId).orElse(null);
+    @Override
+    public ProvinceEntity checkEntityExistOrNot(ProvinceEntity provinceEntity) {
+        return provinceRepository.findById(provinceEntity.getProvinceId()).orElse(null);
     }
 
-    private UrbanVillageEntity checkUrbanVillageDistrictWasExistOrNot(UUID urbanVillageId) {
-        return urbanVillageRepository.findById(urbanVillageId).orElse(null);
+    @Override
+    public CityEntity checkEntityExistOrNot(CityEntity cityEntity) {
+        return cityRepository.findById(cityEntity.getCityId()).orElse(null);
+    }
+
+    @Override
+    public SubDistrictEntity checkEntityExistOrNot(SubDistrictEntity subDistrictEntity) {
+        return subDistrictRepository.findById(subDistrictEntity.getSubDistrictId()).orElse(null);
+    }
+
+    @Override
+    public UrbanVillageEntity checkEntityExistOrNot(UrbanVillageEntity urbanVillageEntity) {
+        return urbanVillageRepository.findById(urbanVillageEntity.getUrbanVillageId()).orElse(null);
     }
 }

@@ -9,6 +9,7 @@ import com.harifrizki.crimemapsappsapi.model.response.GeneralMessageResponse;
 import com.harifrizki.crimemapsappsapi.repository.AdminRepository;
 import com.harifrizki.crimemapsappsapi.repository.CityRepository;
 import com.harifrizki.crimemapsappsapi.repository.ProvinceRepository;
+import com.harifrizki.crimemapsappsapi.service.ControllerService;
 import com.harifrizki.crimemapsappsapi.service.impl.PaginationServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
@@ -29,9 +30,9 @@ import static com.harifrizki.crimemapsappsapi.utils.UtilizationClass.existEntity
 import static com.harifrizki.crimemapsappsapi.utils.UtilizationClass.successProcess;
 
 @RestController
-@RequestMapping(GENERAL_CONTROLLER_URL)
+@RequestMapping(GENERAL_END_POINT)
 @Validated
-public class CityController {
+public class CityController extends ControllerService {
 
     @Autowired
     private CityRepository cityRepository;
@@ -48,54 +49,10 @@ public class CityController {
     @Autowired
     private Environment environment;
 
-    @GetMapping(CITY_GET_ALL_CONTROLLER)
-    @ResponseBody
-    private String getAllCity(@RequestParam int pageNo) {
-        CityResponse response = new CityResponse();
-        GeneralMessageResponse message = new GeneralMessageResponse();
-
-        try {
-            int realPage = pageNo - 1;
-            Pageable pageable = PageRequest.
-                    of(realPage, Integer.parseInt(environment.getProperty(PAGINATION_CONTENT_SIZE_PER_PAGE)),
-                            Sort.by(Sort.Direction.ASC, "cityName"));
-
-            Page<CityEntity> page = cityRepository.findAll(pageable);
-            ArrayList<CityEntity> cityEntities = new ArrayList<>(page.getContent());
-
-            ArrayList<CityModel> cityModels = new ArrayList<>();
-            for (CityEntity cityEntity : cityEntities) {
-                cityModels.add(new CityModel().
-                        convertFromEntityToModel(
-                                cityEntity,
-                                cityEntity.getProvince(),
-                                cityEntity.getCreatedBy(),
-                                cityEntity.getUpdatedBy())
-                );
-            }
-
-            response.setCities(cityModels);
-            response.setPage(paginationService.getPagination(
-                    pageNo, CITY_GET_ALL_CONTROLLER,
-                    page, new String[]{"pageNo"}, new String[]{}));
-
-            message.setSuccess(true);
-            message.setMessage(
-                    successProcess(
-                            SUCCESS_SELECT_ALL,
-                            environment.getProperty(ENTITY_CITY)));
-        } catch (Exception e) {
-            message.setSuccess(false);
-            message.setMessage(e.getMessage());
-        }
-
-        response.setMessage(message);
-        return response.toJson(response, OPERATION_SELECT);
-    }
-
-    @PostMapping(CITY_GET_ALL_SEARCH_NAME_CONTROLLER)
-    private String getAllCity(@RequestParam int pageNo,
-                              @Validated @RequestParam("cityName") String cityName) {
+    @PostMapping(END_POINT_CITY)
+    private String getAllCity(@RequestParam String searchBy,
+                              @RequestParam int pageNo,
+                              @Validated @RequestBody CityEntity cityEntity) {
         CityResponse response = new CityResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
@@ -105,24 +62,52 @@ public class CityController {
                     of(realPage, Integer.parseInt(environment.getProperty(PAGINATION_CONTENT_SIZE_PER_PAGE)),
                             Sort.by(Sort.Direction.ASC, "city_name"));
 
-            Page<CityEntity> page = cityRepository.findByName(pageable, cityName);
+            Page<CityEntity> page = null;
+            switch (searchBy) {
+                case PARAM_NAME:
+                    page = cityRepository.findByName(
+                            pageable,
+                            cityEntity.getCityName());
+                    break;
+                case PARAM_PROVINCE_ID:
+                    ProvinceEntity existProvince = checkEntityExistOrNot(cityEntity.getProvince());
+
+                    if (existProvince == null)
+                    {
+                        message.setSuccess(false);
+                        message.setMessage(existEntityNotFound(
+                                environment.getProperty(ENTITY_PROVINCE),
+                                environment.getProperty(ENTITY_PROVINCE_ID),
+                                String.valueOf(cityEntity.getProvince().getProvinceId()),
+                                environment.getProperty(OPERATION_NAME_READ_ALL),
+                                environment.getProperty(ENTITY_CITY)));
+
+                        response.setMessage(message);
+                        return response.toJson(response, OPERATION_SELECT);
+                    } else page = cityRepository.findByProvinceId(
+                            pageable,
+                            cityEntity.getProvince().getProvinceId(),
+                            cityEntity.getCityName());
+                    break;
+            }
+
             ArrayList<CityEntity> cityEntities = new ArrayList<>(page.getContent());
 
             ArrayList<CityModel> cityModels = new ArrayList<>();
-            for (CityEntity cityEntity : cityEntities) {
+            for (CityEntity city : cityEntities) {
                 cityModels.add(new CityModel().
                         convertFromEntityToModel(
-                                cityEntity,
-                                cityEntity.getProvince(),
-                                cityEntity.getCreatedBy(),
-                                cityEntity.getUpdatedBy())
+                                city,
+                                city.getProvince(),
+                                city.getCreatedBy(),
+                                city.getUpdatedBy())
                 );
             }
 
             response.setCities(cityModels);
             response.setPage(paginationService.getPagination(
-                    pageNo, CITY_GET_ALL_SEARCH_NAME_CONTROLLER,
-                    page, new String[]{"pageNo"}, new String[]{}));
+                    pageNo, END_POINT_CITY,
+                    page, new String[]{PARAM_SEARCH_BY, PARAM_PAGE_NO}, new String[]{searchBy}));
 
             message.setSuccess(true);
             message.setMessage(
@@ -138,82 +123,20 @@ public class CityController {
         return response.toJson(response, OPERATION_SELECT);
     }
 
-    @PostMapping(CITY_GET_ALL_SEARCH_PROVINCE_ID_CONTROLLER)
-    private String getAllCity(@RequestParam int pageNo,
-                              @Validated @RequestBody CityEntity cityEntity) {
+    @PostMapping(END_POINT_DETAIL_CITY)
+    private String getCity(@Validated @RequestBody CityEntity cityEntity) {
         CityResponse response = new CityResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
         try {
-            ProvinceEntity existProvince = checkProvinceWasExistOrNot(cityEntity.getProvince().getProvinceId());
+            CityEntity existCity = checkEntityExistOrNot(cityEntity);
 
-            if (existProvince == null)
-            {
-                message.setSuccess(false);
-                message.setMessage(existEntityNotFound(
-                        environment.getProperty(ENTITY_PROVINCE),
-                        environment.getProperty(ENTITY_PROVINCE_ID),
-                        String.valueOf(cityEntity.getProvince().getProvinceId()),
-                        "Get All",
-                        environment.getProperty(ENTITY_CITY)));
-            } else {
-                int realPage = pageNo - 1;
-                Pageable pageable = PageRequest.
-                        of(realPage, Integer.parseInt(environment.getProperty(PAGINATION_CONTENT_SIZE_PER_PAGE)),
-                                Sort.by(Sort.Direction.ASC, "city_name"));
-
-                Page<CityEntity> page = cityRepository.findByProvinceId(
-                        pageable,
-                        existProvince.getProvinceId(),
-                        cityEntity.getCityName());
-                ArrayList<CityEntity> cityEntities = new ArrayList<>(page.getContent());
-
-                ArrayList<CityModel> cityModels = new ArrayList<>();
-                for (CityEntity city : cityEntities) {
-                    cityModels.add(new CityModel().
-                            convertFromEntityToModel(
-                                    city,
-                                    city.getProvince(),
-                                    city.getCreatedBy(),
-                                    city.getUpdatedBy())
-                    );
-                }
-
-                response.setCities(cityModels);
-                response.setPage(paginationService.getPagination(
-                        pageNo, CITY_GET_ALL_SEARCH_PROVINCE_ID_CONTROLLER,
-                        page, new String[]{"pageNo"}, new String[]{}));
-
-                message.setSuccess(true);
-                message.setMessage(
-                        successProcess(
-                                SUCCESS_SELECT_ALL,
-                                environment.getProperty(ENTITY_CITY)));
-            }
-        } catch (Exception e) {
-            message.setSuccess(false);
-            message.setMessage(e.getMessage());
-        }
-
-        response.setMessage(message);
-        return response.toJson(response, OPERATION_SELECT);
-    }
-
-    @PostMapping(CITY_GET_SEARCH_ID_CONTROLLER)
-    private String getCity(@Validated @RequestParam("cityId") UUID cityId) {
-        CityResponse response = new CityResponse();
-        GeneralMessageResponse message = new GeneralMessageResponse();
-
-        try {
-            CityEntity existCity = checkCityWasExistOrNot(cityId);
-
-            if (existCity == null)
-            {
+            if (existCity == null) {
                 message.setSuccess(false);
                 message.setMessage(existEntityNotFound(
                         environment.getProperty(ENTITY_CITY),
                         environment.getProperty(ENTITY_CITY_ID),
-                        String.valueOf(cityId)));
+                        String.valueOf(cityEntity.getCityId())));
             } else {
                 response.setCity(new CityModel().
                         convertFromEntityToModel(
@@ -237,34 +160,32 @@ public class CityController {
         return response.toJson(response, OPERATION_CRU);
     }
 
-    @PostMapping(CITY_ADD_CONTROLLER)
+    @PostMapping(END_POINT_ADD_CITY)
     private String add(@Validated @RequestBody CityEntity cityEntity) {
         CityResponse response = new CityResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
         try {
-            AdminEntity createdBy = checkAdminWasExistOrNot(cityEntity.getCreatedBy().getAdminId());
+            AdminEntity createdBy = checkEntityExistOrNot(cityEntity.getCreatedBy().getAdminId());
 
-            if (createdBy == null)
-            {
+            if (createdBy == null) {
                 message.setSuccess(false);
                 message.setMessage(existEntityNotFound(
                         environment.getProperty(ENTITY_ADMIN),
                         environment.getProperty(ENTITY_ADMIN_ID),
                         String.valueOf(cityEntity.getCreatedBy().getAdminId()),
-                        "Created New",
+                        environment.getProperty(OPERATION_NAME_CREATE),
                         environment.getProperty(ENTITY_CITY)));
             } else {
-                ProvinceEntity province = checkProvinceWasExistOrNot(cityEntity.getProvince().getProvinceId());
+                ProvinceEntity province = checkEntityExistOrNot(cityEntity.getProvince());
 
-                if (province == null)
-                {
+                if (province == null) {
                     message.setSuccess(false);
                     message.setMessage(existEntityNotFound(
                             environment.getProperty(ENTITY_PROVINCE),
                             environment.getProperty(ENTITY_PROVINCE_ID),
                             String.valueOf(cityEntity.getProvince().getProvinceId()),
-                            "Created New",
+                            environment.getProperty(OPERATION_NAME_CREATE),
                             environment.getProperty(ENTITY_CITY)));
                 } else {
                     cityEntity.setProvince(province);
@@ -284,7 +205,7 @@ public class CityController {
                     message.setSuccess(true);
                     message.setMessage(successProcess(
                             environment.getProperty(ENTITY_CITY),
-                            "Added New"
+                            environment.getProperty(OPERATION_NAME_CREATE)
                     ));
                 }
             }
@@ -297,43 +218,40 @@ public class CityController {
         return response.toJson(response, OPERATION_CRU);
     }
 
-    @PostMapping(CITY_UPDATE_CONTROLLER)
+    @PostMapping(END_POINT_UPDATE_CITY)
     private String update(@Validated @RequestBody CityEntity cityEntity) {
         CityResponse response = new CityResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
         try {
-            CityEntity existCity = checkCityWasExistOrNot(cityEntity.getCityId());
+            CityEntity existCity = checkEntityExistOrNot(cityEntity);
 
-            if (existCity == null)
-            {
+            if (existCity == null) {
                 message.setSuccess(false);
                 message.setMessage(existEntityNotFound(
                         environment.getProperty(ENTITY_CITY),
                         environment.getProperty(ENTITY_CITY_ID),
                         String.valueOf(cityEntity.getCityId())));
             } else {
-                ProvinceEntity existProvince = checkProvinceWasExistOrNot(cityEntity.getProvince().getProvinceId());
+                ProvinceEntity existProvince = checkEntityExistOrNot(cityEntity.getProvince());
 
-                if (existProvince == null)
-                {
+                if (existProvince == null) {
                     message.setSuccess(false);
                     message.setMessage(existEntityNotFound(
                             environment.getProperty(ENTITY_PROVINCE),
                             environment.getProperty(ENTITY_PROVINCE_ID),
                             String.valueOf(cityEntity.getProvince().getProvinceId()),
-                            "Updated Existing",
+                            environment.getProperty(OPERATION_NAME_UPDATE),
                             environment.getProperty(ENTITY_CITY)));
                 } else {
-                    AdminEntity updatedBy = checkAdminWasExistOrNot(cityEntity.getUpdatedBy().getAdminId());
+                    AdminEntity updatedBy = checkEntityExistOrNot(cityEntity.getUpdatedBy().getAdminId());
 
-                    if (updatedBy == null)
-                    {
+                    if (updatedBy == null) {
                         message.setMessage(existEntityNotFound(
                                 environment.getProperty(ENTITY_ADMIN),
                                 environment.getProperty(ENTITY_ADMIN_ID),
                                 String.valueOf(cityEntity.getUpdatedBy().getAdminId()),
-                                "Updated Existing",
+                                environment.getProperty(OPERATION_NAME_UPDATE),
                                 environment.getProperty(ENTITY_CITY)));
                     } else {
                         existCity.setCityName(cityEntity.getCityName());
@@ -358,7 +276,7 @@ public class CityController {
                                         String.valueOf(existCity.getCityId()),
                                         environment.getProperty(ENTITY_CITY_NAME),
                                         existCity.getCityName(),
-                                        "Updated"));
+                                        environment.getProperty(OPERATION_NAME_UPDATE)));
                     }
                 }
             }
@@ -371,16 +289,15 @@ public class CityController {
         return response.toJson(response, OPERATION_CRU);
     }
 
-    @PostMapping(CITY_DELETE_CONTROLLER)
+    @PostMapping(END_POINT_DELETE_CITY)
     private String delete(@Validated @RequestBody CityEntity cityEntity) {
         CityResponse response = new CityResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
         try {
-            CityEntity existCity = checkCityWasExistOrNot(cityEntity.getCityId());
+            CityEntity existCity = checkEntityExistOrNot(cityEntity);
 
-            if (existCity == null)
-            {
+            if (existCity == null) {
                 message.setSuccess(false);
                 message.setMessage(existEntityNotFound(
                         environment.getProperty(ENTITY_CITY),
@@ -395,7 +312,7 @@ public class CityController {
                                 String.valueOf(existCity.getCityId()),
                                 environment.getProperty(ENTITY_CITY_NAME),
                                 existCity.getCityName(),
-                                "Deleted"));
+                                environment.getProperty(OPERATION_NAME_DELETE)));
 
                 cityRepository.delete(existCity);
             }
@@ -408,15 +325,18 @@ public class CityController {
         return response.toJson(response, OPERATION_DELETE);
     }
 
-    private AdminEntity checkAdminWasExistOrNot(UUID adminId) {
+    @Override
+    public AdminEntity checkEntityExistOrNot(UUID adminId) {
         return adminRepository.findById(adminId).orElse(null);
     }
 
-    private ProvinceEntity checkProvinceWasExistOrNot(UUID provinceId) {
-        return  provinceRepository.findById(provinceId).orElse(null);
+    @Override
+    public ProvinceEntity checkEntityExistOrNot(ProvinceEntity provinceEntity) {
+        return provinceRepository.findById(provinceEntity.getProvinceId()).orElse(null);
     }
 
-    private CityEntity checkCityWasExistOrNot(UUID cityId) {
-        return  cityRepository.findById(cityId).orElse(null);
+    @Override
+    public CityEntity checkEntityExistOrNot(CityEntity cityEntity) {
+        return cityRepository.findById(cityEntity.getCityId()).orElse(null);
     }
 }

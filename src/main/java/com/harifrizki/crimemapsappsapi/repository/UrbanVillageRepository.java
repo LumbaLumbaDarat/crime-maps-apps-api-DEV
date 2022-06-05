@@ -15,6 +15,12 @@ public interface UrbanVillageRepository extends JpaRepository<UrbanVillageEntity
     @Query(value = "SELECT * FROM Urban_Village WHERE urban_village_name LIKE %?1%", nativeQuery = true)
     Page<UrbanVillageEntity> findByName(Pageable pageable, String name);
 
+    @Query(value = "SELECT * FROM Urban_Village WHERE province_id = ?1 AND urban_village_name LIKE %?2%", nativeQuery = true)
+    Page<UrbanVillageEntity> findByProvinceId(Pageable pageable, UUID provinceId, String name);
+
+    @Query(value = "SELECT * FROM Urban_Village WHERE city_id = ?1 AND urban_village_name LIKE %?2%", nativeQuery = true)
+    Page<UrbanVillageEntity> findByCityId(Pageable pageable, UUID cityId, String name);
+
     @Query(value = "SELECT * FROM Urban_Village WHERE sub_district_id = ?1 AND urban_village_name LIKE %?2%", nativeQuery = true)
     Page<UrbanVillageEntity> findBySubDistrictId(Pageable pageable, UUID subDistrictId, String name);
 

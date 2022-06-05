@@ -4,14 +4,14 @@ import com.harifrizki.crimemapsappsapi.entity.AdminEntity;
 import com.harifrizki.crimemapsappsapi.entity.CityEntity;
 import com.harifrizki.crimemapsappsapi.entity.ProvinceEntity;
 import com.harifrizki.crimemapsappsapi.entity.SubDistrictEntity;
-import com.harifrizki.crimemapsappsapi.model.CityModel;
 import com.harifrizki.crimemapsappsapi.model.SubDistrictModel;
-import com.harifrizki.crimemapsappsapi.model.response.CityResponse;
 import com.harifrizki.crimemapsappsapi.model.response.GeneralMessageResponse;
 import com.harifrizki.crimemapsappsapi.model.response.SubDistrictResponse;
 import com.harifrizki.crimemapsappsapi.repository.AdminRepository;
 import com.harifrizki.crimemapsappsapi.repository.CityRepository;
+import com.harifrizki.crimemapsappsapi.repository.ProvinceRepository;
 import com.harifrizki.crimemapsappsapi.repository.SubDistrictRepository;
+import com.harifrizki.crimemapsappsapi.service.ControllerService;
 import com.harifrizki.crimemapsappsapi.service.impl.PaginationServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
@@ -32,12 +32,15 @@ import static com.harifrizki.crimemapsappsapi.utils.UtilizationClass.existEntity
 import static com.harifrizki.crimemapsappsapi.utils.UtilizationClass.successProcess;
 
 @RestController
-@RequestMapping(GENERAL_CONTROLLER_URL)
+@RequestMapping(GENERAL_END_POINT)
 @Validated
-public class SubDistrictsController {
+public class SubDistrictsController extends ControllerService {
 
     @Autowired
     private SubDistrictRepository subDistrictRepository;
+
+    @Autowired
+    private ProvinceRepository provinceRepository;
 
     @Autowired
     private CityRepository cityRepository;
@@ -51,54 +54,10 @@ public class SubDistrictsController {
     @Autowired
     private Environment environment;
 
-    @GetMapping(SUB_DISTRICT_GET_ALL_CONTROLLER)
-    @ResponseBody
-    private String getAllSubDistrict(@RequestParam int pageNo) {
-        SubDistrictResponse response = new SubDistrictResponse();
-        GeneralMessageResponse message = new GeneralMessageResponse();
-
-        try {
-            int realPage = pageNo - 1;
-            Pageable pageable = PageRequest.
-                    of(realPage, Integer.parseInt(environment.getProperty(PAGINATION_CONTENT_SIZE_PER_PAGE)),
-                            Sort.by(Sort.Direction.ASC, "subDistrictName"));
-
-            Page<SubDistrictEntity> page = subDistrictRepository.findAll(pageable);
-            ArrayList<SubDistrictEntity> subDistrictEntities = new ArrayList<>(page.getContent());
-
-            ArrayList<SubDistrictModel> subDistrictModels = new ArrayList<>();
-            for (SubDistrictEntity subDistrictEntity : subDistrictEntities) {
-                subDistrictModels.add(new SubDistrictModel().
-                        convertFromEntityToModel(
-                                subDistrictEntity,
-                                subDistrictEntity.getCity(),
-                                subDistrictEntity.getCreatedBy(),
-                                subDistrictEntity.getUpdatedBy())
-                );
-            }
-
-            response.setSubDistricts(subDistrictModels);
-            response.setPage(paginationService.getPagination(
-                    pageNo, SUB_DISTRICT_GET_ALL_CONTROLLER,
-                    page, new String[]{"pageNo"}, new String[]{}));
-
-            message.setSuccess(true);
-            message.setMessage(
-                    successProcess(
-                            SUCCESS_SELECT_ALL,
-                            environment.getProperty(ENTITY_SUB_DISTRICT)));
-        } catch (Exception e) {
-            message.setSuccess(false);
-            message.setMessage(e.getMessage());
-        }
-
-        response.setMessage(message);
-        return response.toJson(response, OPERATION_SELECT);
-    }
-
-    @PostMapping(SUB_DISTRICT_GET_ALL_SEARCH_NAME_CONTROLLER)
-    private String getAllSubDistrict(@RequestParam int pageNo,
-                                     @Validated @RequestParam("subDistrictName") String subDistrictName) {
+    @PostMapping(END_POINT_SUB_DISTRICT)
+    private String getAllSubDistrict(@RequestParam String searchBy,
+                                     @RequestParam int pageNo,
+                                     @Validated @RequestBody SubDistrictEntity subDistrictEntity) {
         SubDistrictResponse response = new SubDistrictResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
@@ -108,24 +67,72 @@ public class SubDistrictsController {
                     of(realPage, Integer.parseInt(environment.getProperty(PAGINATION_CONTENT_SIZE_PER_PAGE)),
                             Sort.by(Sort.Direction.ASC, "sub_district_name"));
 
-            Page<SubDistrictEntity> page = subDistrictRepository.findByName(pageable, subDistrictName);
-            ArrayList<SubDistrictEntity> subDistrictEntities = new ArrayList<>(page.getContent());
+            Page<SubDistrictEntity> page = null;
+            switch (searchBy) {
+                case PARAM_NAME:
+                    page = subDistrictRepository.findByName(
+                            pageable,
+                            subDistrictEntity.getSubDistrictName());
+                    break;
+                case PARAM_PROVINCE_ID:
+                    ProvinceEntity existProvince = checkEntityExistOrNot(subDistrictEntity.getProvince());
 
+                    if (existProvince == null)
+                    {
+                        message.setSuccess(false);
+                        message.setMessage(existEntityNotFound(
+                                environment.getProperty(ENTITY_PROVINCE),
+                                environment.getProperty(ENTITY_PROVINCE_ID),
+                                String.valueOf(subDistrictEntity.getProvince().getProvinceId()),
+                                environment.getProperty(OPERATION_NAME_READ_ALL),
+                                environment.getProperty(ENTITY_SUB_DISTRICT)));
+
+                        response.setMessage(message);
+                        return response.toJson(response, OPERATION_SELECT);
+                    } else page = subDistrictRepository.findByProvinceId(
+                            pageable,
+                            subDistrictEntity.getProvince().getProvinceId(),
+                            subDistrictEntity.getSubDistrictName());
+                    break;
+                case PARAM_CITY_ID:
+                    CityEntity existCity = checkEntityExistOrNot(subDistrictEntity.getCity());
+
+                    if (existCity == null)
+                    {
+                        message.setSuccess(false);
+                        message.setMessage(existEntityNotFound(
+                                environment.getProperty(ENTITY_CITY),
+                                environment.getProperty(ENTITY_CITY_ID),
+                                String.valueOf(subDistrictEntity.getCity().getCityId()),
+                                environment.getProperty(OPERATION_NAME_READ_ALL),
+                                environment.getProperty(ENTITY_SUB_DISTRICT)));
+
+                        response.setMessage(message);
+                        return response.toJson(response, OPERATION_SELECT);
+                    } else page = subDistrictRepository.findByCityId(
+                            pageable,
+                            subDistrictEntity.getCity().getCityId(),
+                            subDistrictEntity.getSubDistrictName());
+                    break;
+            }
+
+            ArrayList<SubDistrictEntity> subDistrictEntities = new ArrayList<>(page.getContent());
             ArrayList<SubDistrictModel> subDistrictModels = new ArrayList<>();
-            for (SubDistrictEntity subDistrictEntity : subDistrictEntities) {
+            for (SubDistrictEntity subDistrict : subDistrictEntities) {
                 subDistrictModels.add(new SubDistrictModel().
                         convertFromEntityToModel(
-                                subDistrictEntity,
-                                subDistrictEntity.getCity(),
-                                subDistrictEntity.getCreatedBy(),
-                                subDistrictEntity.getUpdatedBy())
+                                subDistrict,
+                                subDistrict.getProvince(),
+                                subDistrict.getCity(),
+                                subDistrict.getCreatedBy(),
+                                subDistrict.getUpdatedBy())
                 );
             }
 
             response.setSubDistricts(subDistrictModels);
             response.setPage(paginationService.getPagination(
-                    pageNo, SUB_DISTRICT_GET_ALL_SEARCH_NAME_CONTROLLER,
-                    page, new String[]{"pageNo"}, new String[]{}));
+                    pageNo, END_POINT_SUB_DISTRICT,
+                    page, new String[]{PARAM_SEARCH_BY, PARAM_PAGE_NO}, new String[]{searchBy}));
 
             message.setSuccess(true);
             message.setMessage(
@@ -141,86 +148,25 @@ public class SubDistrictsController {
         return response.toJson(response, OPERATION_SELECT);
     }
 
-    @PostMapping(SUB_DISTRICT_GET_ALL_SEARCH_CITY_ID_CONTROLLER)
-    private String getAllSubDistrict(@RequestParam int pageNo,
-                                     @Validated @RequestBody SubDistrictEntity subDistrictEntity) {
+    @PostMapping(END_POINT_DETAIL_SUB_DISTRICT)
+    private String getSubDistrict(@Validated @RequestBody SubDistrictEntity subDistrictEntity) {
         SubDistrictResponse response = new SubDistrictResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
         try {
-            CityEntity existCity = checkCityWasExistOrNot(subDistrictEntity.getCity().getCityId());
+            SubDistrictEntity existSubDistrict = checkEntityExistOrNot(subDistrictEntity);
 
-            if (existCity == null)
-            {
-                message.setSuccess(false);
-                message.setMessage(existEntityNotFound(
-                        environment.getProperty(ENTITY_CITY),
-                        environment.getProperty(ENTITY_CITY_ID),
-                        String.valueOf(subDistrictEntity.getCity().getCityId()),
-                        "Get All",
-                        environment.getProperty(ENTITY_SUB_DISTRICT)));
-            } else {
-                int realPage = pageNo - 1;
-                Pageable pageable = PageRequest.
-                        of(realPage, Integer.parseInt(environment.getProperty(PAGINATION_CONTENT_SIZE_PER_PAGE)),
-                                Sort.by(Sort.Direction.ASC, "sub_district_name"));
-
-                Page<SubDistrictEntity> page = subDistrictRepository.findByCityId(
-                        pageable,
-                        existCity.getCityId(),
-                        subDistrictEntity.getSubDistrictName());
-                ArrayList<SubDistrictEntity> subDistrictEntities = new ArrayList<>(page.getContent());
-
-                ArrayList<SubDistrictModel> subDistrictModels = new ArrayList<>();
-                for (SubDistrictEntity subDistrict : subDistrictEntities) {
-                    subDistrictModels.add(new SubDistrictModel().
-                            convertFromEntityToModel(
-                                    subDistrict,
-                                    subDistrict.getCity(),
-                                    subDistrict.getCreatedBy(),
-                                    subDistrict.getUpdatedBy())
-                    );
-                }
-
-                response.setSubDistricts(subDistrictModels);
-                response.setPage(paginationService.getPagination(
-                        pageNo, SUB_DISTRICT_GET_ALL_SEARCH_CITY_ID_CONTROLLER,
-                        page, new String[]{"pageNo"}, new String[]{}));
-
-                message.setSuccess(true);
-                message.setMessage(
-                        successProcess(
-                                SUCCESS_SELECT_ALL,
-                                environment.getProperty(ENTITY_SUB_DISTRICT)));
-            }
-        } catch (Exception e) {
-            message.setSuccess(false);
-            message.setMessage(e.getMessage());
-        }
-
-        response.setMessage(message);
-        return response.toJson(response, OPERATION_SELECT);
-    }
-
-    @PostMapping(SUB_DISTRICT_GET_SEARCH_ID_CONTROLLER)
-    private String getSubDistrict(@Validated @RequestParam("subDistrictId") UUID subDistrictId) {
-        SubDistrictResponse response = new SubDistrictResponse();
-        GeneralMessageResponse message = new GeneralMessageResponse();
-
-        try {
-            SubDistrictEntity existSubDistrict = checkSubDistrictWasExistOrNot(subDistrictId);
-
-            if (existSubDistrict == null)
-            {
+            if (existSubDistrict == null) {
                 message.setSuccess(false);
                 message.setMessage(existEntityNotFound(
                         environment.getProperty(ENTITY_SUB_DISTRICT),
                         environment.getProperty(ENTITY_SUB_DISTRICT_ID),
-                        String.valueOf(subDistrictId)));
+                        String.valueOf(subDistrictEntity.getSubDistrictId())));
             } else {
                 response.setSubDistrict(new SubDistrictModel().
                         convertFromEntityToModel(
                                 existSubDistrict,
+                                existSubDistrict.getProvince(),
                                 existSubDistrict.getCity(),
                                 existSubDistrict.getCreatedBy(),
                                 existSubDistrict.getUpdatedBy()));
@@ -240,128 +186,69 @@ public class SubDistrictsController {
         return response.toJson(response, OPERATION_CRU);
     }
 
-    @PostMapping(SUB_DISTRICT_ADD_CONTROLLER)
+    @PostMapping(END_POINT_ADD_SUB_DISTRICT)
     private String add(@Validated @RequestBody SubDistrictEntity subDistrictEntity) {
         SubDistrictResponse response = new SubDistrictResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
         try {
-            AdminEntity createdBy = checkAdminWasExistOrNot(subDistrictEntity.getCreatedBy().getAdminId());
+            AdminEntity createdBy = checkEntityExistOrNot(
+                    subDistrictEntity.getCreatedBy().getAdminId());
 
-            if (createdBy == null)
-            {
+            if (createdBy == null) {
                 message.setSuccess(false);
                 message.setMessage(existEntityNotFound(
                         environment.getProperty(ENTITY_ADMIN),
                         environment.getProperty(ENTITY_ADMIN_ID),
                         String.valueOf(subDistrictEntity.getCreatedBy().getAdminId()),
-                        "Created New",
+                        environment.getProperty(OPERATION_NAME_CREATE),
                         environment.getProperty(ENTITY_SUB_DISTRICT)));
             } else {
-                CityEntity city = checkCityWasExistOrNot(subDistrictEntity.getCity().getCityId());
+                ProvinceEntity province = checkEntityExistOrNot(
+                        subDistrictEntity.getProvince());
 
-                if (city == null)
-                {
+                if (province == null) {
                     message.setSuccess(false);
                     message.setMessage(existEntityNotFound(
-                            environment.getProperty(ENTITY_CITY),
-                            environment.getProperty(ENTITY_CITY_ID),
-                            String.valueOf(subDistrictEntity.getCity().getCityId()),
-                            "Created New",
+                            environment.getProperty(ENTITY_PROVINCE),
+                            environment.getProperty(ENTITY_PROVINCE_ID),
+                            String.valueOf(subDistrictEntity.getProvince().getProvinceId()),
+                            environment.getProperty(OPERATION_NAME_CREATE),
                             environment.getProperty(ENTITY_SUB_DISTRICT)));
                 } else {
-                    subDistrictEntity.setCity(city);
-                    subDistrictEntity.setCreatedBy(createdBy);
-                    subDistrictEntity.setCreatedDate(LocalDateTime.now());
-                    subDistrictEntity.setUpdatedBy(null);
+                    CityEntity city = checkEntityExistOrNot(
+                            subDistrictEntity.getCity());
 
-                    SubDistrictEntity result = subDistrictRepository.save(subDistrictEntity);
-
-                    response.setSubDistrict(new SubDistrictModel().
-                            convertFromEntityToModel(
-                                    result,
-                                    result.getCity(),
-                                    result.getCreatedBy(),
-                                    result.getUpdatedBy()));
-
-                    message.setSuccess(true);
-                    message.setMessage(successProcess(
-                            environment.getProperty(ENTITY_SUB_DISTRICT),
-                            "Added New"
-                    ));
-                }
-            }
-        } catch (Exception e) {
-            message.setSuccess(false);
-            message.setMessage(e.getMessage());
-        }
-
-        response.setMessage(message);
-        return response.toJson(response, OPERATION_CRU);
-    }
-
-    @PostMapping(SUB_DISTRICT_UPDATE_CONTROLLER)
-    private String update(@Validated @RequestBody SubDistrictEntity subDistrictEntity) {
-        SubDistrictResponse response = new SubDistrictResponse();
-        GeneralMessageResponse message = new GeneralMessageResponse();
-
-        try {
-            SubDistrictEntity existSubDistrict = checkSubDistrictWasExistOrNot(subDistrictEntity.getSubDistrictId());
-
-            if (existSubDistrict == null)
-            {
-                message.setSuccess(false);
-                message.setMessage(existEntityNotFound(
-                        environment.getProperty(ENTITY_SUB_DISTRICT),
-                        environment.getProperty(ENTITY_SUB_DISTRICT_ID),
-                        String.valueOf(subDistrictEntity.getSubDistrictId())));
-            } else {
-                CityEntity existCity = checkCityWasExistOrNot(subDistrictEntity.getCity().getCityId());
-
-                if (existCity == null)
-                {
-                    message.setSuccess(false);
-                    message.setMessage(existEntityNotFound(
-                            environment.getProperty(ENTITY_CITY),
-                            environment.getProperty(ENTITY_CITY_ID),
-                            String.valueOf(subDistrictEntity.getCity().getCityId()),
-                            "Updated Existing",
-                            environment.getProperty(ENTITY_SUB_DISTRICT)));
-                } else {
-                    AdminEntity updatedBy = checkAdminWasExistOrNot(subDistrictEntity.getUpdatedBy().getAdminId());
-
-                    if (updatedBy == null)
-                    {
+                    if (city == null) {
+                        message.setSuccess(false);
                         message.setMessage(existEntityNotFound(
-                                environment.getProperty(ENTITY_ADMIN),
-                                environment.getProperty(ENTITY_ADMIN_ID),
-                                String.valueOf(subDistrictEntity.getUpdatedBy().getAdminId()),
-                                "Updated Existing",
+                                environment.getProperty(ENTITY_CITY),
+                                environment.getProperty(ENTITY_CITY_ID),
+                                String.valueOf(subDistrictEntity.getCity().getCityId()),
+                                environment.getProperty(OPERATION_NAME_CREATE),
                                 environment.getProperty(ENTITY_SUB_DISTRICT)));
                     } else {
-                        existSubDistrict.setSubDistrictName(subDistrictEntity.getSubDistrictName());
-                        existSubDistrict.setCity(existCity);
-                        existSubDistrict.setUpdatedBy(updatedBy);
-                        existSubDistrict.setUpdatedDate(LocalDateTime.now());
+                        subDistrictEntity.setProvince(province);
+                        subDistrictEntity.setCity(city);
+                        subDistrictEntity.setCreatedBy(createdBy);
+                        subDistrictEntity.setCreatedDate(LocalDateTime.now());
+                        subDistrictEntity.setUpdatedBy(null);
 
-                        SubDistrictEntity result = subDistrictRepository.save(existSubDistrict);
+                        SubDistrictEntity result = subDistrictRepository.save(subDistrictEntity);
 
                         response.setSubDistrict(new SubDistrictModel().
                                 convertFromEntityToModel(
                                         result,
+                                        result.getProvince(),
                                         result.getCity(),
                                         result.getCreatedBy(),
                                         result.getUpdatedBy()));
 
                         message.setSuccess(true);
-                        message.setMessage(
-                                successProcess(
-                                        environment.getProperty(ENTITY_SUB_DISTRICT),
-                                        environment.getProperty(ENTITY_SUB_DISTRICT_ID),
-                                        String.valueOf(existSubDistrict.getSubDistrictId()),
-                                        environment.getProperty(ENTITY_SUB_DISTRICT_NAME),
-                                        existSubDistrict.getSubDistrictName(),
-                                        "Updated"));
+                        message.setMessage(successProcess(
+                                environment.getProperty(ENTITY_SUB_DISTRICT),
+                                environment.getProperty(OPERATION_NAME_CREATE)
+                        ));
                     }
                 }
             }
@@ -374,16 +261,105 @@ public class SubDistrictsController {
         return response.toJson(response, OPERATION_CRU);
     }
 
-    @PostMapping(SUB_DISTRICT_DELETE_CONTROLLER)
+    @PostMapping(END_POINT_UPDATE_SUB_DISTRICT)
+    private String update(@Validated @RequestBody SubDistrictEntity subDistrictEntity) {
+        SubDistrictResponse response = new SubDistrictResponse();
+        GeneralMessageResponse message = new GeneralMessageResponse();
+
+        try {
+            SubDistrictEntity existSubDistrict = checkEntityExistOrNot(
+                    subDistrictEntity);
+
+            if (existSubDistrict == null) {
+                message.setSuccess(false);
+                message.setMessage(existEntityNotFound(
+                        environment.getProperty(ENTITY_SUB_DISTRICT),
+                        environment.getProperty(ENTITY_SUB_DISTRICT_ID),
+                        String.valueOf(subDistrictEntity.getSubDistrictId())));
+            } else {
+                ProvinceEntity existProvince = checkEntityExistOrNot(
+                        subDistrictEntity.getProvince());
+
+                if (existProvince == null) {
+                    message.setSuccess(false);
+                    message.setMessage(existEntityNotFound(
+                            environment.getProperty(ENTITY_PROVINCE),
+                            environment.getProperty(ENTITY_PROVINCE_ID),
+                            String.valueOf(subDistrictEntity.getCity().getCityId()),
+                            environment.getProperty(OPERATION_NAME_UPDATE),
+                            environment.getProperty(ENTITY_SUB_DISTRICT)));
+                } else {
+                    CityEntity existCity = checkEntityExistOrNot(
+                            subDistrictEntity.getCity());
+
+                    if (existCity == null) {
+                        message.setSuccess(false);
+                        message.setMessage(existEntityNotFound(
+                                environment.getProperty(ENTITY_CITY),
+                                environment.getProperty(ENTITY_CITY_ID),
+                                String.valueOf(subDistrictEntity.getProvince().getProvinceId()),
+                                environment.getProperty(OPERATION_NAME_UPDATE),
+                                environment.getProperty(ENTITY_SUB_DISTRICT)));
+                    } else {
+                        AdminEntity updatedBy = checkEntityExistOrNot(
+                                subDistrictEntity.getUpdatedBy().getAdminId());
+
+                        if (updatedBy == null) {
+                            message.setMessage(existEntityNotFound(
+                                    environment.getProperty(ENTITY_ADMIN),
+                                    environment.getProperty(ENTITY_ADMIN_ID),
+                                    String.valueOf(subDistrictEntity.getUpdatedBy().getAdminId()),
+                                    environment.getProperty(OPERATION_NAME_UPDATE),
+                                    environment.getProperty(ENTITY_SUB_DISTRICT)));
+                        } else {
+                            existSubDistrict.setSubDistrictName(subDistrictEntity.getSubDistrictName());
+                            existSubDistrict.setProvince(existProvince);
+                            existSubDistrict.setCity(existCity);
+                            existSubDistrict.setUpdatedBy(updatedBy);
+                            existSubDistrict.setUpdatedDate(LocalDateTime.now());
+
+                            SubDistrictEntity result = subDistrictRepository.save(existSubDistrict);
+
+                            response.setSubDistrict(new SubDistrictModel().
+                                    convertFromEntityToModel(
+                                            result,
+                                            result.getProvince(),
+                                            result.getCity(),
+                                            result.getCreatedBy(),
+                                            result.getUpdatedBy()));
+
+                            message.setSuccess(true);
+                            message.setMessage(
+                                    successProcess(
+                                            environment.getProperty(ENTITY_SUB_DISTRICT),
+                                            environment.getProperty(ENTITY_SUB_DISTRICT_ID),
+                                            String.valueOf(existSubDistrict.getSubDistrictId()),
+                                            environment.getProperty(ENTITY_SUB_DISTRICT_NAME),
+                                            existSubDistrict.getSubDistrictName(),
+                                            environment.getProperty(OPERATION_NAME_UPDATE)));
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            message.setSuccess(false);
+            message.setMessage(e.getMessage());
+        }
+
+        response.setMessage(message);
+        return response.toJson(response, OPERATION_CRU);
+    }
+
+    @PostMapping(END_POINT_DELETE_SUB_DISTRICT)
     private String delete(@Validated @RequestBody SubDistrictEntity subDistrictEntity) {
         SubDistrictResponse response = new SubDistrictResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
         try {
-            SubDistrictEntity existSubDistrict = checkSubDistrictWasExistOrNot(subDistrictEntity.getSubDistrictId());
+            SubDistrictEntity existSubDistrict = checkEntityExistOrNot(
+                    subDistrictEntity);
 
-            if (existSubDistrict == null)
-            {
+            if (existSubDistrict == null) {
                 message.setSuccess(false);
                 message.setMessage(existEntityNotFound(
                         environment.getProperty(ENTITY_SUB_DISTRICT),
@@ -398,7 +374,7 @@ public class SubDistrictsController {
                                 String.valueOf(existSubDistrict.getSubDistrictId()),
                                 environment.getProperty(ENTITY_SUB_DISTRICT_NAME),
                                 existSubDistrict.getSubDistrictName(),
-                                "Deleted"));
+                                environment.getProperty(OPERATION_NAME_DELETE)));
 
                 subDistrictRepository.delete(existSubDistrict);
             }
@@ -411,15 +387,23 @@ public class SubDistrictsController {
         return response.toJson(response, OPERATION_DELETE);
     }
 
-    private AdminEntity checkAdminWasExistOrNot(UUID adminId) {
+    @Override
+    public AdminEntity checkEntityExistOrNot(UUID adminId) {
         return adminRepository.findById(adminId).orElse(null);
     }
 
-    private CityEntity checkCityWasExistOrNot(UUID cityId) {
-        return  cityRepository.findById(cityId).orElse(null);
+    @Override
+    public ProvinceEntity checkEntityExistOrNot(ProvinceEntity provinceEntity) {
+        return provinceRepository.findById(provinceEntity.getProvinceId()).orElse(null);
     }
 
-    private SubDistrictEntity checkSubDistrictWasExistOrNot(UUID subDistrictId) {
-        return subDistrictRepository.findById(subDistrictId).orElse(null);
+    @Override
+    public CityEntity checkEntityExistOrNot(CityEntity cityEntity) {
+        return cityRepository.findById(cityEntity.getCityId()).orElse(null);
+    }
+
+    @Override
+    public SubDistrictEntity checkEntityExistOrNot(SubDistrictEntity subDistrictEntity) {
+        return subDistrictRepository.findById(subDistrictEntity.getSubDistrictId()).orElse(null);
     }
 }

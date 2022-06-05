@@ -1,8 +1,6 @@
 package com.harifrizki.crimemapsappsapi.model;
 
-import com.harifrizki.crimemapsappsapi.entity.AdminEntity;
-import com.harifrizki.crimemapsappsapi.entity.SubDistrictEntity;
-import com.harifrizki.crimemapsappsapi.entity.UrbanVillageEntity;
+import com.harifrizki.crimemapsappsapi.entity.*;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -13,6 +11,12 @@ public class UrbanVillageModel {
 
     @Getter @Setter
     private UUID urbanVillageId;
+
+    @Getter @Setter
+    private ProvinceModel province;
+
+    @Getter @Setter
+    private CityModel city;
 
     @Getter @Setter
     private SubDistrictModel subDistrict;
@@ -44,11 +48,21 @@ public class UrbanVillageModel {
 
     public UrbanVillageModel convertFromEntityToModel(
             UrbanVillageEntity urbanVillageEntity,
+            ProvinceEntity provinceEntity,
+            CityEntity cityEntity,
             SubDistrictEntity subDistrictEntity,
             AdminEntity createdBy,
             AdminEntity updatedBy) {
         UrbanVillageModel urbanVillage = new UrbanVillageModel();
         urbanVillage.setUrbanVillageId(urbanVillageEntity.getUrbanVillageId());
+
+        if (provinceEntity != null)
+            urbanVillage.setProvince(new ProvinceModel().convertFromEntityToModel(provinceEntity));
+        else urbanVillage.setProvince(null);
+
+        if (cityEntity != null)
+            urbanVillage.setCity(new CityModel().convertFromEntityToModel(cityEntity));
+        else urbanVillage.setCity(null);
 
         if (subDistrictEntity != null)
             urbanVillage.setSubDistrict(new SubDistrictModel().convertFromEntityToModel(subDistrictEntity));

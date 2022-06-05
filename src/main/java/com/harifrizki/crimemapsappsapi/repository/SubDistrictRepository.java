@@ -15,6 +15,9 @@ public interface SubDistrictRepository extends JpaRepository<SubDistrictEntity, 
     @Query(value = "SELECT * FROM Sub_District WHERE sub_district_name LIKE %?1%", nativeQuery = true)
     Page<SubDistrictEntity> findByName(Pageable pageable, String name);
 
+    @Query(value = "SELECT * FROM Sub_District WHERE province_id = ?1 AND sub_district_name LIKE %?2%", nativeQuery = true)
+    Page<SubDistrictEntity> findByProvinceId(Pageable pageable, UUID provinceId, String name);
+
     @Query(value = "SELECT * FROM Sub_District WHERE city_id = ?1 AND sub_district_name LIKE %?2%", nativeQuery = true)
     Page<SubDistrictEntity> findByCityId(Pageable pageable, UUID cityId, String name);
 

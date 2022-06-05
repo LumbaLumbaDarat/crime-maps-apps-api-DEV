@@ -6,6 +6,7 @@ import com.harifrizki.crimemapsappsapi.model.AdminModel;
 import com.harifrizki.crimemapsappsapi.model.response.*;
 import com.harifrizki.crimemapsappsapi.network.response.ImageStorageResponse;
 import com.harifrizki.crimemapsappsapi.repository.AdminRepository;
+import com.harifrizki.crimemapsappsapi.service.ControllerService;
 import com.harifrizki.crimemapsappsapi.service.ResponseImageService;
 import com.harifrizki.crimemapsappsapi.service.impl.ImageServiceImpl;
 import com.harifrizki.crimemapsappsapi.service.impl.PaginationServiceImpl;
@@ -28,9 +29,9 @@ import static com.harifrizki.crimemapsappsapi.utils.ControllerConstants.*;
 import static com.harifrizki.crimemapsappsapi.utils.UtilizationClass.*;
 
 @RestController
-@RequestMapping(GENERAL_CONTROLLER_URL)
+@RequestMapping(GENERAL_END_POINT)
 @Validated
-public class AdminController {
+public class AdminController extends ControllerService {
 
     @Autowired
     private AdminRepository adminRepository;
@@ -44,9 +45,10 @@ public class AdminController {
     @Autowired
     private Environment environment;
 
-    @GetMapping(ADMIN_GET_ALL_CONTROLLER)
-    @ResponseBody
-    private String getAllAdmin(@RequestParam int pageNo) {
+    @PostMapping(END_POINT_ADMIN)
+    private String getAllAdmin(@RequestParam String searchBy,
+                               @RequestParam int pageNo,
+                               @Validated @RequestBody AdminEntity adminEntity) {
         AdminResponse response = new AdminResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
@@ -54,25 +56,27 @@ public class AdminController {
             int realPage = pageNo - 1;
             Pageable pageable = PageRequest.
                     of(realPage, Integer.parseInt(environment.getProperty(PAGINATION_CONTENT_SIZE_PER_PAGE)),
-                            Sort.by(Sort.Direction.ASC, "adminUsername"));
+                            Sort.by(Sort.Direction.ASC, "admin_username"));
 
-            Page<AdminEntity> page = adminRepository.findAll(pageable);
+            Page<AdminEntity> page = null;
+            if (searchBy.equalsIgnoreCase(PARAM_NAME))
+                page = adminRepository.findByName(pageable, adminEntity.getAdminName());
+
             ArrayList<AdminEntity> adminEntities = new ArrayList<>(page.getContent());
 
             ArrayList<AdminModel> adminModels = new ArrayList<>();
-            for (AdminEntity adminEntity : adminEntities)
-            {
+            for (AdminEntity admin : adminEntities) {
                 AdminEntity createdBy = null;
-                if (adminEntity.getCreatedBy() != null)
-                    createdBy = checkAdminWasExistOrNot(adminEntity.getCreatedBy());
+                if (admin.getCreatedBy() != null)
+                    createdBy = checkEntityExistOrNot(admin.getCreatedBy());
 
                 AdminEntity updatedBy = null;
-                if (adminEntity.getUpdatedBy() != null)
-                    updatedBy = checkAdminWasExistOrNot(adminEntity.getUpdatedBy());
+                if (admin.getUpdatedBy() != null)
+                    updatedBy = checkEntityExistOrNot(admin.getUpdatedBy());
 
                 adminModels.add(new AdminModel().
                         convertFromEntityToModel(
-                                adminEntity,
+                                admin,
                                 createdBy,
                                 updatedBy)
                 );
@@ -80,8 +84,8 @@ public class AdminController {
 
             response.setAdmins(adminModels);
             response.setPage(paginationService.getPagination(
-                    pageNo, ADMIN_GET_ALL_CONTROLLER,
-                    page, new String[]{"pageNo"}, new String[]{}));
+                    pageNo, END_POINT_ADMIN,
+                    page, new String[]{PARAM_SEARCH_BY, PARAM_PAGE_NO}, new String[]{searchBy}));
 
             message.setSuccess(true);
             message.setMessage(
@@ -97,69 +101,15 @@ public class AdminController {
         return response.toJson(response, OPERATION_SELECT);
     }
 
-    @PostMapping(ADMIN_GET_ALL_SEARCH_NAME_CONTROLLER)
-    private String getAllAdmin(@RequestParam int pageNo,
-                               @Validated @RequestParam("adminName") String adminName) {
-        AdminResponse response = new AdminResponse();
-        GeneralMessageResponse message = new GeneralMessageResponse();
-
-        try {
-            int realPage = pageNo - 1;
-            Pageable pageable = PageRequest.
-                    of(realPage, Integer.parseInt(environment.getProperty(PAGINATION_CONTENT_SIZE_PER_PAGE)),
-                            Sort.by(Sort.Direction.ASC, "admin_name"));
-
-            Page<AdminEntity> page = adminRepository.findByName(pageable, adminName);
-            ArrayList<AdminEntity> adminEntities = new ArrayList<>(page.getContent());
-
-            ArrayList<AdminModel> adminModels = new ArrayList<>();
-            for (AdminEntity adminEntity : adminEntities)
-            {
-                AdminEntity createdBy = null;
-                if (adminEntity.getCreatedBy() != null)
-                    createdBy = checkAdminWasExistOrNot(adminEntity.getCreatedBy());
-
-                AdminEntity updatedBy = null;
-                if (adminEntity.getUpdatedBy() != null)
-                    updatedBy = checkAdminWasExistOrNot(adminEntity.getUpdatedBy());
-
-                adminModels.add(new AdminModel().
-                        convertFromEntityToModel(
-                                adminEntity,
-                                createdBy,
-                                updatedBy)
-                );
-            }
-
-            response.setAdmins(adminModels);
-            response.setPage(paginationService.getPagination(
-                    pageNo, ADMIN_GET_ALL_SEARCH_NAME_CONTROLLER,
-                    page, new String[]{"pageNo"}, new String[]{}));
-
-            message.setSuccess(true);
-            message.setMessage(
-                    successProcess(
-                            SUCCESS_SELECT_ALL,
-                            environment.getProperty(ENTITY_ADMIN)));
-        } catch (Exception e) {
-            message.setSuccess(false);
-            message.setMessage(e.getMessage());
-        }
-
-        response.setMessage(message);
-        return response.toJson(response, OPERATION_SELECT);
-    }
-
-    @PostMapping(ADMIN_SEARCH_ID_CONTROLLER)
+    @PostMapping(END_POINT_DETAIL_ADMIN)
     private String getAdmin(@Validated @RequestParam("adminId") UUID adminId) {
         AdminResponse response = new AdminResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
         try {
-            AdminEntity existAdmin = checkAdminWasExistOrNot(adminId);
+            AdminEntity existAdmin = checkEntityExistOrNot(adminId);
 
-            if (existAdmin == null)
-            {
+            if (existAdmin == null) {
                 message.setSuccess(false);
                 message.setMessage(existEntityNotFound(
                         environment.getProperty(ENTITY_ADMIN),
@@ -168,11 +118,11 @@ public class AdminController {
             } else {
                 AdminEntity createdBy = null;
                 if (existAdmin.getCreatedBy() != null)
-                    createdBy = checkAdminWasExistOrNot(existAdmin.getCreatedBy());
+                    createdBy = checkEntityExistOrNot(existAdmin.getCreatedBy());
 
                 AdminEntity updatedBy = null;
                 if (existAdmin.getUpdatedBy() != null)
-                    updatedBy = checkAdminWasExistOrNot(existAdmin.getUpdatedBy());
+                    updatedBy = checkEntityExistOrNot(existAdmin.getUpdatedBy());
 
                 response.setAdmin(
                         new AdminModel().
@@ -195,7 +145,7 @@ public class AdminController {
     }
 
     @RequestMapping(
-            path = ADMIN_ADD_CONTROLLER,
+            path = END_POINT_ADD_ADMIN,
             method = RequestMethod.POST,
             consumes = {"multipart/form-data"})
     private String add(@Validated @RequestParam("adminEntity") String jsonAdminEntity,
@@ -206,22 +156,26 @@ public class AdminController {
         try {
             AdminEntity adminEntity = new Gson().fromJson(jsonAdminEntity, AdminEntity.class);
             AdminEntity existAdmin = adminRepository.findByUsername(adminEntity.getAdminUsername());
-            AdminEntity createdBy = checkAdminWasExistOrNot(adminEntity.getCreatedBy());
+            AdminEntity createdBy = checkEntityExistOrNot(adminEntity.getCreatedBy());
 
-            if (existAdmin != null)
-            {
+            if (existAdmin != null) {
                 message.setSuccess(false);
-                message.setMessage("Failed [Created New] Admin. This Admin was Created at ".
+                message.setMessage("Gagal ["
+                        + environment.getProperty(OPERATION_NAME_CREATE)
+                        +"] "
+                        + environment.getProperty(ENTITY_ADMIN)
+                        + ". "
+                        + environment.getProperty(ENTITY_ADMIN)
+                        + " ini telah dibuat pada ".
                         concat(existAdmin.getCreatedDate().toString()));
             } else {
-                if (createdBy == null)
-                {
+                if (createdBy == null) {
                     message.setSuccess(false);
                     message.setMessage(existEntityNotFound(
                             environment.getProperty(ENTITY_ADMIN),
                             environment.getProperty(ENTITY_ADMIN_ID),
                             String.valueOf(adminEntity.getCreatedBy()),
-                            "Created New",
+                            environment.getProperty(OPERATION_NAME_CREATE),
                             environment.getProperty(ENTITY_ADMIN)));
                 } else {
                     adminEntity.setAdminPassword(hashPassword(environment.getProperty(DEFAULT_PASSWORD_ADMIN)));
@@ -234,8 +188,7 @@ public class AdminController {
                         @Override
                         public void onResponse(AdminEntity admin, ImageStorageResponse imageStorageResponse) {
                             super.onResponse(admin, imageStorageResponse);
-                            if (imageStorageResponse.getSuccess())
-                            {
+                            if (imageStorageResponse.getSuccess()) {
                                 admin.setAdminImage(imageStorageResponse.getValue());
                                 admin = adminRepository.save(admin);
 
@@ -248,7 +201,7 @@ public class AdminController {
                                 message.setMessage(
                                         successProcess(
                                                 environment.getProperty(ENTITY_ADMIN),
-                                                "Added New"));
+                                                environment.getProperty(OPERATION_NAME_CREATE)));
                             } else {
                                 adminRepository.delete(admin);
 
@@ -269,19 +222,24 @@ public class AdminController {
         return response.toJson(response, OPERATION_CRU);
     }
 
-    @PostMapping(ADMIN_ADD_DEFAULT_ROOT_ADMIN_CONTROLLER)
+    @PostMapping(END_POINT_ADD_DEFAULT_ADMIN)
     private String addDefaultAdmin() {
         AdminResponse response = new AdminResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
         try {
-            AdminEntity existAdmin = adminRepository.
-                    findByUsername(environment.getProperty(DEFAULT_ADMIN_FIRST_ROOT_USERNAME));
+            AdminEntity existAdmin = checkEntityExistOrNot(
+                    environment.getProperty(DEFAULT_ADMIN_FIRST_ROOT_USERNAME));
 
-            if (existAdmin != null)
-            {
+            if (existAdmin != null) {
                 message.setSuccess(false);
-                message.setMessage("Failed [Added] Default Admin. This Admin was Added at ".
+                message.setMessage("Gagal ["
+                        + environment.getProperty(OPERATION_NAME_CREATE)
+                        + "] "
+                        + environment.getProperty(DEFAULT_ADMIN_FIRST_ROOT_USERNAME)
+                        + SPACE_STRING
+                        + environment.getProperty(ENTITY_ADMIN)
+                        + " ini telah ditambahkan pada ".
                         concat(existAdmin.getCreatedDate().toString()));
             } else {
                 AdminEntity defaultAdmin = new AdminEntity();
@@ -302,7 +260,10 @@ public class AdminController {
                                 null));
 
                 message.setSuccess(true);
-                message.setMessage("Successfully [Added] First Admin");
+                message.setMessage("Berhasil ["
+                        + environment.getProperty(OPERATION_NAME_CREATE)
+                        + "] "
+                        + environment.getProperty(DEFAULT_ADMIN_FIRST_ROOT_USERNAME));
             }
         } catch (Exception e) {
             message.setSuccess(false);
@@ -313,36 +274,34 @@ public class AdminController {
         return response.toJson(response, OPERATION_CRU);
     }
 
-    @PostMapping(ADMIN_UPDATE_CONTROLLER)
+    @PostMapping(END_POINT_UPDATE_ADMIN)
     private String update(@Validated @RequestBody AdminEntity adminEntity) {
         AdminResponse response = new AdminResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
         try {
-            AdminEntity existAdmin = checkAdminWasExistOrNot(adminEntity.getAdminId());
-            AdminEntity updatedBy = checkAdminWasExistOrNot(adminEntity.getUpdatedBy());
+            AdminEntity existAdmin = checkEntityExistOrNot(adminEntity.getAdminId());
+            AdminEntity updatedBy  = checkEntityExistOrNot(adminEntity.getUpdatedBy());
 
-            if (existAdmin == null)
-            {
+            if (existAdmin == null) {
                 message.setSuccess(false);
                 message.setMessage(existEntityNotFound(
                         environment.getProperty(ENTITY_ADMIN),
                         environment.getProperty(ENTITY_ADMIN_ID),
                         String.valueOf(adminEntity.getAdminId())));
             } else {
-                if (updatedBy == null)
-                {
+                if (updatedBy == null) {
                     message.setSuccess(false);
                     message.setMessage(existEntityNotFound(
                             environment.getProperty(ENTITY_ADMIN),
                             environment.getProperty(ENTITY_ADMIN_ID),
                             String.valueOf(adminEntity.getUpdatedBy()),
-                            "Updated Existing",
+                            environment.getProperty(OPERATION_NAME_UPDATE),
                             environment.getProperty(ENTITY_ADMIN)));
                 } else {
                     AdminEntity createdBy = null;
                     if (existAdmin.getCreatedBy() != null)
-                        createdBy = checkAdminWasExistOrNot(existAdmin.getCreatedBy());
+                        createdBy = checkEntityExistOrNot(existAdmin.getCreatedBy());
 
                     existAdmin.setAdminName(adminEntity.getAdminName());
                     existAdmin.setUpdatedBy(updatedBy.getAdminId());
@@ -362,7 +321,7 @@ public class AdminController {
                             String.valueOf(adminEntity.getAdminId()),
                             environment.getProperty(ENTITY_ADMIN_USERNAME),
                             existAdmin.getAdminUsername(),
-                            "Updated"));
+                            environment.getProperty(OPERATION_NAME_UPDATE)));
                 }
             }
         } catch (Exception e) {
@@ -375,7 +334,7 @@ public class AdminController {
     }
 
     @RequestMapping(
-            path = ADMIN_UPDATE_IMAGE_PROFILE_CONTROLLER,
+            path = END_POINT_UPDATE_PHOTO_PROFILE_ADMIN,
             method = RequestMethod.POST,
             consumes = {"multipart/form-data"})
     private String updatePhotoProfile(@Validated @RequestParam("adminEntity") String jsonAdminEntity,
@@ -385,33 +344,32 @@ public class AdminController {
 
         try {
             AdminEntity adminEntity = new Gson().fromJson(jsonAdminEntity, AdminEntity.class);
-            AdminEntity existAdmin = checkAdminWasExistOrNot(adminEntity.getAdminId());
-            AdminEntity updatedBy = checkAdminWasExistOrNot(adminEntity.getUpdatedBy());
+            AdminEntity existAdmin = checkEntityExistOrNot(adminEntity.getAdminId());
+            AdminEntity updatedBy  = checkEntityExistOrNot(adminEntity.getUpdatedBy());
 
-            if (existAdmin == null)
-            {
+            if (existAdmin == null) {
                 message.setSuccess(false);
                 message.setMessage(existEntityNotFound(
                         environment.getProperty(ENTITY_ADMIN),
                         environment.getProperty(ENTITY_ADMIN_ID),
                         String.valueOf(adminEntity.getAdminId())));
             } else {
-                if (updatedBy == null)
-                {
+                if (updatedBy == null) {
                     message.setSuccess(false);
                     message.setMessage(existEntityNotFound(
                             environment.getProperty(ENTITY_ADMIN),
                             environment.getProperty(ENTITY_ADMIN_ID),
                             String.valueOf(adminEntity.getUpdatedBy()),
-                            "Updated Photo Profile Existing",
+                            environment.getProperty(OPERATION_NAME_UPDATE)
+                                    + SPACE_STRING
+                                    + environment.getProperty(PHOTO_PROFILE_NAME),
                             environment.getProperty(ENTITY_ADMIN)));
                 } else {
                     imageService.setResponseImageService(new ResponseImageService() {
                         @Override
                         public void onResponse(AdminEntity admin, ImageStorageResponse imageStorageResponse) {
                             super.onResponse(admin, imageStorageResponse);
-                            if (imageStorageResponse.getSuccess())
-                            {
+                            if (imageStorageResponse.getSuccess()) {
                                 admin.setUpdatedBy(updatedBy.getAdminId());
                                 admin.setUpdatedDate(LocalDateTime.now());
 
@@ -421,7 +379,7 @@ public class AdminController {
                                         new AdminModel().
                                                 convertFromEntityToModel(
                                                         result,
-                                                        checkAdminWasExistOrNot(result.getCreatedBy()),
+                                                        checkEntityExistOrNot(result.getCreatedBy()),
                                                         updatedBy));
 
                                 message.setSuccess(true);
@@ -431,7 +389,9 @@ public class AdminController {
                                         String.valueOf(adminEntity.getAdminId()),
                                         environment.getProperty(ENTITY_ADMIN_USERNAME),
                                         existAdmin.getAdminUsername(),
-                                        "Updated Photo Profile"));
+                                        environment.getProperty(OPERATION_NAME_UPDATE)
+                                                + SPACE_STRING
+                                                + environment.getProperty(PHOTO_PROFILE_NAME)));
                             } else {
                                 message.setSuccess(false);
                                 message.setMessage(imageStorageResponse.getMessage());
@@ -450,7 +410,7 @@ public class AdminController {
         return response.toJson(response, OPERATION_CRU);
     }
 
-    @PostMapping(ADMIN_UPDATE_PASSWORD_CONTROLLER)
+    @PostMapping(END_POINT_UPDATE_PASSWORD_ADMIN)
     private String updatePassword(@Validated @RequestParam("adminId") UUID adminId,
                                   @Validated @RequestParam("adminOldPassword") String adminOldPassword,
                                   @Validated @RequestParam("adminNewPassword") String adminNewPassword) {
@@ -458,18 +418,16 @@ public class AdminController {
         GeneralMessageResponse message = new GeneralMessageResponse();
 
         try {
-            AdminEntity existAdmin = checkAdminWasExistOrNot(adminId);
+            AdminEntity existAdmin = checkEntityExistOrNot(adminId);
 
-            if (existAdmin == null)
-            {
+            if (existAdmin == null) {
                 message.setSuccess(false);
                 message.setMessage(existEntityNotFound(
                         environment.getProperty(ENTITY_ADMIN),
                         environment.getProperty(ENTITY_ADMIN_ID),
                         String.valueOf(adminId)));
             } else {
-                if (comparePassword(adminOldPassword, existAdmin.getAdminPassword()))
-                {
+                if (comparePassword(adminOldPassword, existAdmin.getAdminPassword())) {
                     existAdmin.setAdminPassword(hashPassword(adminNewPassword));
                     existAdmin.setUpdatedBy(adminId);
                     existAdmin.setUpdatedDate(LocalDateTime.now());
@@ -478,11 +436,11 @@ public class AdminController {
 
                     AdminEntity createdBy = null;
                     if (result.getCreatedBy() != null)
-                        createdBy = checkAdminWasExistOrNot(result.getCreatedBy());
+                        createdBy = checkEntityExistOrNot(result.getCreatedBy());
 
                     AdminEntity updatedBy = null;
                     if (result.getUpdatedBy() != null)
-                        updatedBy = checkAdminWasExistOrNot(result.getUpdatedBy());
+                        updatedBy = checkEntityExistOrNot(result.getUpdatedBy());
 
                     response.setAdmin(
                             new AdminModel().
@@ -498,10 +456,18 @@ public class AdminController {
                             String.valueOf(adminId),
                             environment.getProperty(ENTITY_ADMIN_USERNAME),
                             existAdmin.getAdminUsername(),
-                            "Update Password"));
+                            environment.getProperty(OPERATION_NAME_UPDATE)
+                                    + SPACE_STRING
+                                    + environment.getProperty(PASSWORD_NAME)));
                 } else {
                     message.setSuccess(false);
-                    message.setMessage("Failed [Updated Password], Existing Password was not Correct");
+                    message.setMessage("Gagal ["
+                            + environment.getProperty(OPERATION_NAME_UPDATE)
+                            + SPACE_STRING
+                            + environment.getProperty(PASSWORD_NAME)
+                            + "], "
+                            + environment.getProperty(PASSWORD_NAME)
+                            + " Sebelumnya tidak sesuai");
                 }
             }
         } catch (Exception e) {
@@ -513,36 +479,36 @@ public class AdminController {
         return response.toJson(response, OPERATION_CRU);
     }
 
-    @PostMapping(ADMIN_RESET_PASSWORD_CONTROLLER)
+    @PostMapping(END_POINT_RESET_PASSWORD_ADMIN)
     private String updatePassword(@Validated @RequestBody AdminEntity adminEntity) {
         AdminResponse response = new AdminResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
         try {
-            AdminEntity existAdmin = checkAdminWasExistOrNot(adminEntity.getAdminId());
-            AdminEntity updatedBy = checkAdminWasExistOrNot(adminEntity.getUpdatedBy());
+            AdminEntity existAdmin = checkEntityExistOrNot(adminEntity.getAdminId());
+            AdminEntity updatedBy  = checkEntityExistOrNot(adminEntity.getUpdatedBy());
 
-            if (existAdmin == null)
-            {
+            if (existAdmin == null) {
                 message.setSuccess(false);
                 message.setMessage(existEntityNotFound(
                         environment.getProperty(ENTITY_ADMIN),
                         environment.getProperty(ENTITY_ADMIN_ID),
                         String.valueOf(adminEntity.getAdminId())));
             } else {
-                if (updatedBy == null)
-                {
+                if (updatedBy == null) {
                     message.setSuccess(false);
                     message.setMessage(existEntityNotFound(
                             environment.getProperty(ENTITY_ADMIN),
                             environment.getProperty(ENTITY_ADMIN_ID),
                             String.valueOf(adminEntity.getUpdatedBy()),
-                            "Reset Password",
+                            environment.getProperty(OPERATION_NAME_RESET)
+                                    + SPACE_STRING
+                                    + environment.getProperty(PASSWORD_NAME),
                             environment.getProperty(ENTITY_ADMIN)));
                 } else {
                     AdminEntity createdBy = null;
                     if (existAdmin.getCreatedBy() != null)
-                        createdBy = checkAdminWasExistOrNot(existAdmin.getCreatedBy());
+                        createdBy = checkEntityExistOrNot(existAdmin.getCreatedBy());
 
                     existAdmin.setAdminPassword(hashPassword(environment.getProperty(DEFAULT_PASSWORD_ADMIN)));
                     existAdmin.setUpdatedBy(updatedBy.getAdminId());
@@ -562,7 +528,9 @@ public class AdminController {
                             String.valueOf(adminEntity.getAdminId()),
                             environment.getProperty(ENTITY_ADMIN_USERNAME),
                             existAdmin.getAdminUsername(),
-                            "Reset Password"));
+                            environment.getProperty(OPERATION_NAME_RESET)
+                                    + SPACE_STRING
+                                    + environment.getProperty(PASSWORD_NAME)));
                 }
             }
         } catch (Exception e) {
@@ -574,43 +542,41 @@ public class AdminController {
         return response.toJson(response, OPERATION_CRU);
     }
 
-    @PostMapping(ADMIN_UPDATE_ACTIVE_CONTROLLER)
+    @PostMapping(END_POINT_ACTIVATED_ADMIN)
     private String updateActivated(@Validated @RequestBody AdminEntity adminEntity) {
         AdminResponse response = new AdminResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
         try {
-            AdminEntity existAdmin = checkAdminWasExistOrNot(adminEntity.getAdminId());
-            AdminEntity updatedBy = checkAdminWasExistOrNot(adminEntity.getUpdatedBy());
+            AdminEntity existAdmin = checkEntityExistOrNot(adminEntity.getAdminId());
+            AdminEntity updatedBy  = checkEntityExistOrNot(adminEntity.getUpdatedBy());
 
-            if (existAdmin == null)
-            {
+            if (existAdmin == null) {
                 message.setSuccess(false);
                 message.setMessage(existEntityNotFound(
                         environment.getProperty(ENTITY_ADMIN),
                         environment.getProperty(ENTITY_ADMIN_ID),
                         String.valueOf(adminEntity.getAdminId())));
             } else {
-                if (updatedBy == null)
-                {
+                if (updatedBy == null) {
                     message.setSuccess(false);
                     if (adminEntity.isActive())
                         message.setMessage(existEntityNotFound(
                                 environment.getProperty(ENTITY_ADMIN),
                                 environment.getProperty(ENTITY_ADMIN_ID),
                                 String.valueOf(adminEntity.getUpdatedBy()),
-                                "Activated",
+                                environment.getProperty(ACTIVATED_NAME),
                                 environment.getProperty(ENTITY_ADMIN)));
                     else message.setMessage(existEntityNotFound(
                             environment.getProperty(ENTITY_ADMIN),
                             environment.getProperty(ENTITY_ADMIN_ID),
                             String.valueOf(adminEntity.getUpdatedBy()),
-                            "Deactivated",
+                            environment.getProperty(DEACTIVATED_NAME),
                             environment.getProperty(ENTITY_ADMIN)));
                 } else {
                     AdminEntity createdBy = null;
                     if (existAdmin.getCreatedBy() != null)
-                        createdBy = checkAdminWasExistOrNot(existAdmin.getCreatedBy());
+                        createdBy = checkEntityExistOrNot(existAdmin.getCreatedBy());
 
                     existAdmin.setActive(adminEntity.isActive());
                     existAdmin.setUpdatedBy(updatedBy.getAdminId());
@@ -632,7 +598,7 @@ public class AdminController {
                                         String.valueOf(adminEntity.getAdminId()),
                                         environment.getProperty(ENTITY_ADMIN_USERNAME),
                                         existAdmin.getAdminUsername(),
-                                        "Activated"));
+                                        environment.getProperty(ACTIVATED_NAME)));
                     else message.setMessage(
                             successProcess(
                                     environment.getProperty(ENTITY_ADMIN),
@@ -640,7 +606,7 @@ public class AdminController {
                                     String.valueOf(adminEntity.getAdminId()),
                                     environment.getProperty(ENTITY_ADMIN_USERNAME),
                                     existAdmin.getAdminUsername(),
-                                    "Deactivated"));
+                                    environment.getProperty(DEACTIVATED_NAME)));
                 }
             }
         } catch (Exception e) {
@@ -652,16 +618,15 @@ public class AdminController {
         return response.toJson(response, OPERATION_CRU);
     }
 
-    @PostMapping(ADMIN_DELETE_CONTROLLER)
+    @PostMapping(END_POINT_DELETE_ADMIN)
     private String delete(@Validated @RequestBody AdminEntity adminEntity) {
         AdminResponse response = new AdminResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
         try {
-            AdminEntity existAdmin = checkAdminWasExistOrNot(adminEntity.getAdminId());
+            AdminEntity existAdmin = checkEntityExistOrNot(adminEntity.getAdminId());
 
-            if (existAdmin == null)
-            {
+            if (existAdmin == null) {
                 message.setSuccess(false);
                 message.setMessage(existEntityNotFound(
                         environment.getProperty(ENTITY_ADMIN),
@@ -672,8 +637,7 @@ public class AdminController {
                     @Override
                     public void onResponse(ImageStorageResponse response) {
                         super.onResponse(response);
-                        if (response.getSuccess())
-                        {
+                        if (response.getSuccess()) {
                             adminRepository.delete(existAdmin);
 
                             message.setSuccess(true);
@@ -684,7 +648,7 @@ public class AdminController {
                                             String.valueOf(adminEntity.getAdminId()),
                                             environment.getProperty(ENTITY_ADMIN_USERNAME),
                                             existAdmin.getAdminUsername(),
-                                            "Deleted"));
+                                            environment.getProperty(OPERATION_NAME_DELETE)));
                         } else {
                             message.setSuccess(false);
                             message.setMessage(response.getMessage());
@@ -702,7 +666,13 @@ public class AdminController {
         return response.toJson(response, OPERATION_DELETE);
     }
 
-    private AdminEntity checkAdminWasExistOrNot(UUID adminId) {
+    @Override
+    public AdminEntity checkEntityExistOrNot(UUID adminId) {
         return adminRepository.findById(adminId).orElse(null);
+    }
+
+    @Override
+    public AdminEntity checkEntityExistOrNot(String adminUsername) {
+        return adminRepository.findByUsername(adminUsername);
     }
 }

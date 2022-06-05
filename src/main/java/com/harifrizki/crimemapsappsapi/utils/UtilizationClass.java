@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Objects;
 
 import static com.harifrizki.crimemapsappsapi.utils.AppsConstants.*;
-import static com.harifrizki.crimemapsappsapi.utils.ControllerConstants.GENERAL_CONTROLLER_URL;
+import static com.harifrizki.crimemapsappsapi.utils.ControllerConstants.GENERAL_END_POINT;
 
 public class UtilizationClass {
 
@@ -30,7 +30,7 @@ public class UtilizationClass {
     }
 
     public static String combineUrl(String controller, String[] params, String[]paramValue) {
-        String url = GENERAL_CONTROLLER_URL.concat(controller);
+        String url = GENERAL_END_POINT.concat(controller);
 
         StringBuilder param = new StringBuilder();
         for (int i = 0; i < params.length; i++) {
@@ -47,7 +47,7 @@ public class UtilizationClass {
     }
 
     public static String existEntityNotFound(String entity, String entityId, String id) {
-        return entity.concat(" with ").concat(entityId).concat(" [").concat(id).concat("] was Not Found");
+        return entity.concat(" dengan ").concat(entityId).concat(" [").concat(id).concat("] Tidak ditemukan.");
     }
 
     public static String existEntityNotFound(
@@ -57,15 +57,15 @@ public class UtilizationClass {
             String operation,
             String subjectOperation) {
         return entity.
-                concat(" with ").
+                concat(" dengan ").
                 concat(entityId).
                 concat(" [").
                 concat(id).
-                concat("] who will [").
+                concat("] yang akan [").
                 concat(operation).
                 concat("] ").
                 concat(subjectOperation).
-                concat(" was Not Found");
+                concat(" Tidak ditemukan.");
     }
 
     public static String successProcess(
@@ -75,15 +75,15 @@ public class UtilizationClass {
             String entityName,
             String name,
             String operation) {
-        return "Successfully [".
+        return "Berhasil [".
                 concat(operation).
                 concat("] ").
                 concat(entity).
-                concat(" with ").
+                concat(" dengan ").
                 concat(entityId).
                 concat(" [").
                 concat(id).
-                concat("], and ").
+                concat("], dan ").
                 concat(entityName).
                 concat(" [").
                 concat(name).
@@ -91,16 +91,16 @@ public class UtilizationClass {
     }
 
     public static String successProcess(String entity, String operation) {
-        return "Successfully [".concat(operation).concat("] ").concat(entity);
+        return "Berhasil [".concat(operation).concat("] ").concat(entity);
     }
 
     public static String successProcess(int successType, String entity) {
         switch (successType)
         {
             case SUCCESS_SELECT_ALL:
-                return "Successfully Get [All ".concat(entity).concat("] per Page");
+                return "Berhasil Mencari [Semua ".concat(entity).concat("] per Halaman");
             case SUCCESS_SELECT_DETAIL:
-                return "Successfully Get [Detail ".concat(entity).concat("]");
+                return "Berhasil Mencari [Detail ".concat(entity).concat("]");
             default:
                 return EMPTY_STRING;
         }

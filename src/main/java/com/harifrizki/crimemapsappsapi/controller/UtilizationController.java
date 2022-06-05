@@ -8,6 +8,7 @@ import com.harifrizki.crimemapsappsapi.model.response.GeneralMessageResponse;
 import com.harifrizki.crimemapsappsapi.model.response.UtilizationResponse;
 import com.harifrizki.crimemapsappsapi.network.response.ImageStorageResponse;
 import com.harifrizki.crimemapsappsapi.repository.*;
+import com.harifrizki.crimemapsappsapi.service.ControllerService;
 import com.harifrizki.crimemapsappsapi.service.ResponseImageService;
 import com.harifrizki.crimemapsappsapi.service.impl.ImageServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,9 +25,9 @@ import static com.harifrizki.crimemapsappsapi.utils.ControllerConstants.*;
 import static com.harifrizki.crimemapsappsapi.utils.UtilizationClass.*;
 
 @RestController
-@RequestMapping(GENERAL_CONTROLLER_URL)
+@RequestMapping(GENERAL_END_POINT)
 @Validated
-public class UtilizationController {
+public class UtilizationController extends ControllerService {
 
     @Autowired
     private AdminRepository adminRepository;
@@ -52,7 +53,7 @@ public class UtilizationController {
     @Autowired
     private Environment environment;
 
-    @GetMapping(HANDSHAKE_CONTROLLER)
+    @GetMapping(HANDSHAKE)
     @ResponseBody
     private String handshakeApi() {
         UtilizationResponse response = new UtilizationResponse();
@@ -67,6 +68,9 @@ public class UtilizationController {
             handshake.setRoleAdmin(environment.getProperty(ADMIN_ROLE_ADMIN));
             handshake.setDefaultImageAdmin(environment.getProperty(DEFAULT_IMAGE_ADMIN));
             handshake.setFirstRootAdmin(environment.getProperty(DEFAULT_ADMIN_FIRST_ROOT_USERNAME));
+            handshake.setDistanceUnit(DEFAULT_DISTANCE_UNIT);
+            handshake.setMaxDistance(DEFAULT_MAX_NEAREST_DISTANCE);
+            handshake.setMaxUploadImageCrimeLocation(MAX_UPLOAD_IMAGE_CRIME_LOCATION);
 
             uploadImageService.setResponseImageService(new ResponseImageService() {
                 @Override
@@ -84,7 +88,7 @@ public class UtilizationController {
 
                         message.setSuccess(true);
                         message.setMessage(successProcess(
-                                "to API",
+                                "kedalam API",
                                 "Handshake"));
                     } else {
                         message.setSuccess(false);
@@ -104,7 +108,7 @@ public class UtilizationController {
         return response.toJson(response, OPERATION_HANDSHAKE);
     }
 
-    @PostMapping(LOGIN_CONTROLLER)
+    @PostMapping(LOGIN)
     private String login(@Validated @RequestBody AdminEntity adminEntity) {
         UtilizationResponse response = new UtilizationResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
@@ -130,11 +134,11 @@ public class UtilizationController {
                         {
                             AdminEntity createdBy = null;
                             if (existAdmin.getCreatedBy() != null)
-                                createdBy = checkAdminWasExistOrNot(existAdmin.getCreatedBy());
+                                createdBy = checkEntityExistOrNot(existAdmin.getCreatedBy());
 
                             AdminEntity updatedBy = null;
                             if (existAdmin.getUpdatedBy() != null)
-                                updatedBy = checkAdminWasExistOrNot(existAdmin.getUpdatedBy());
+                                updatedBy = checkEntityExistOrNot(existAdmin.getUpdatedBy());
 
                             existAdmin.setLogin(true);
 
@@ -154,18 +158,36 @@ public class UtilizationController {
                                             String.valueOf(existAdmin.getAdminId()),
                                             environment.getProperty(ENTITY_ADMIN_USERNAME),
                                             existAdmin.getAdminUsername(),
-                                            "Login"));
+                                            environment.getProperty(LOGIN_NAME)));
                         } else {
                             message.setSuccess(false);
-                            message.setMessage("Failed to Login, This Admin was [Login in other Device]");
+                            message.setMessage("Gagal "
+                                    + environment.getProperty(LOGIN_NAME)
+                                    + ", "
+                                    + environment.getProperty(ENTITY_ADMIN)
+                                    + " ini telah ["
+                                    + environment.getProperty(LOGIN_NAME)
+                                    + " pada Perangkat Lain]");
                         }
                     } else {
                         message.setSuccess(false);
-                        message.setMessage("Failed to Login, This Admin was [Not Active]");
+                        message.setMessage("Gagal "
+                                + environment.getProperty(LOGIN_NAME)
+                                + ", "
+                                + environment.getProperty(ENTITY_ADMIN)
+                                + " ini ["
+                                + environment.getProperty(NOT_ACTIVE_NAME)
+                                + "]");
                     }
                 } else {
                     message.setSuccess(false);
-                    message.setMessage("Failed to Login, Something wrong with [Admin Username] or [Password]");
+                    message.setMessage("Gagal "
+                            + environment.getProperty(LOGIN_NAME)
+                            + ", Terjadi Kesalahan pada ["
+                            + environment.getProperty(ENTITY_ADMIN_USERNAME)
+                            + "] dan ["
+                            + environment.getProperty(PASSWORD_NAME)
+                            + "]");
                 }
             }
         } catch (Exception e) {
@@ -177,14 +199,14 @@ public class UtilizationController {
         return response.toJson(response, OPERATION_LOGIN);
     }
 
-    @PostMapping(LOGOUT_CONTROLLER)
+    @PostMapping(LOGOUT)
     private String logout(@Validated @RequestBody AdminEntity adminEntity) {
         UtilizationResponse response = new UtilizationResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
         try
         {
-            AdminEntity existAdmin = checkAdminWasExistOrNot(adminEntity.getAdminId());
+            AdminEntity existAdmin = checkEntityExistOrNot(adminEntity.getAdminId());
 
             if (existAdmin == null)
             {
@@ -206,7 +228,7 @@ public class UtilizationController {
                                 String.valueOf(adminEntity.getAdminId()),
                                 environment.getProperty(ENTITY_ADMIN_USERNAME),
                                 existAdmin.getAdminUsername(),
-                                "Logout"));
+                                environment.getProperty(LOGOUT_NAME)));
             }
         } catch (Exception e) {
             message.setSuccess(false);
@@ -217,7 +239,7 @@ public class UtilizationController {
         return response.toJson(response, OPERATION_LOGOUT);
     }
 
-    @GetMapping(UTILIZATION_CONTROLLER)
+    @GetMapping(UTILIZATION)
     @ResponseBody
     private String utilization() {
         UtilizationResponse response = new UtilizationResponse();
@@ -256,7 +278,8 @@ public class UtilizationController {
             message.setSuccess(true);
             message.setMessage(successProcess(
                     "Data",
-                    "Get All Count"));
+                    environment.getProperty(OPERATION_NAME_READ_ALL)
+                            + " Jumlah"));
         } catch (Exception e) {
             message.setSuccess(false);
             message.setMessage(e.getMessage());
@@ -266,7 +289,8 @@ public class UtilizationController {
         return response.toJson(response, OPERATION_UTILIZATION);
     }
 
-    private AdminEntity checkAdminWasExistOrNot(UUID adminId) {
+    @Override
+    public AdminEntity checkEntityExistOrNot(UUID adminId) {
         return adminRepository.findById(adminId).orElse(null);
     }
 }

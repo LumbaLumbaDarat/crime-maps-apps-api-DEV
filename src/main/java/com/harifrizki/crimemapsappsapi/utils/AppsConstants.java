@@ -9,12 +9,15 @@ public class AppsConstants {
     public static final String SERVER_DEVELOPMENT_URL = "spring.development.url";
     public static final String PAGINATION_CONTENT_SIZE_PER_PAGE = "pagination.content.size";
 
+    public static final int MAX_UPLOAD_IMAGE_CRIME_LOCATION = 5;
+
     public static final String TENS      = "0";
     public static final String HUNDREDS  = "00";
     public static final String THOUSANDS = "000";
     public static final String MILLIONS  = "0000";
 
     public static final String EMPTY_STRING = "";
+    public static final String SPACE_STRING = " ";
 
     public static final int SUCCESS_SELECT_ALL    = 1;
     public static final int SUCCESS_SELECT_DETAIL = 2;
@@ -41,6 +44,23 @@ public class AppsConstants {
     public static final String ADMIN_ROLE_ADMIN = "admin.role.admin";
 
     public static final String TEMP_FOLDER_FILE_UPLOAD = "folder.temp.upload.image";
+
+    public static final String PASSWORD_NAME      = "password.name";
+    public static final String PHOTO_PROFILE_NAME = "photo.profile.name";
+
+    public static final String ACTIVE_NAME      = "active.name";
+    public static final String ACTIVATED_NAME   = "activated.name";
+    public static final String NOT_ACTIVE_NAME  = "not.active.name";
+    public static final String DEACTIVATED_NAME = "deactivated.name";
+
+    public static final String LOGIN_NAME  = "login.name";
+    public static final String LOGOUT_NAME = "logout.name";
+
+    public static final String OPERATION_NAME_READ_ALL = "operation.name.read.all";
+    public static final String OPERATION_NAME_CREATE   = "operation.name.add";
+    public static final String OPERATION_NAME_UPDATE   = "operation.name.update";
+    public static final String OPERATION_NAME_DELETE   = "operation.name.delete";
+    public static final String OPERATION_NAME_RESET    = "operation.name.reset";
 
     public static final String ENTITY_ADMIN          = "entity.admin";
     public static final String ENTITY_ADMIN_ID       = "entity.admin.id";

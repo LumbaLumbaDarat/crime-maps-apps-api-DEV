@@ -23,6 +23,15 @@ public class HandshakeModel {
     private String firstRootAdmin = "";
 
     @Getter @Setter
+    private String distanceUnit = "";
+
+    @Getter @Setter
+    private double maxDistance = 0.0;
+
+    @Getter @Setter
+    private int maxUploadImageCrimeLocation = 0;
+
+    @Getter @Setter
     private ArrayList<String> urlImageStorageApi = new ArrayList<>();
 
     public HandshakeModel() {

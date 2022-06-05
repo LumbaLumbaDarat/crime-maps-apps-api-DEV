@@ -7,6 +7,7 @@ import com.harifrizki.crimemapsappsapi.model.response.CrimeLocationResponse;
 import com.harifrizki.crimemapsappsapi.model.response.GeneralMessageResponse;
 import com.harifrizki.crimemapsappsapi.network.response.ImageStorageResponse;
 import com.harifrizki.crimemapsappsapi.repository.*;
+import com.harifrizki.crimemapsappsapi.service.ControllerService;
 import com.harifrizki.crimemapsappsapi.service.ResponseImageService;
 import com.harifrizki.crimemapsappsapi.service.impl.CrimeLocationServiceImpl;
 import com.harifrizki.crimemapsappsapi.service.impl.ImageServiceImpl;
@@ -30,9 +31,9 @@ import static com.harifrizki.crimemapsappsapi.utils.UtilizationClass.existEntity
 import static com.harifrizki.crimemapsappsapi.utils.UtilizationClass.successProcess;
 
 @RestController
-@RequestMapping(GENERAL_CONTROLLER_URL)
+@RequestMapping(GENERAL_END_POINT)
 @Validated
-public class CrimeLocationController {
+public class CrimeLocationController extends ControllerService {
 
     @Autowired
     private CrimeLocationRepository crimeLocationRepository;
@@ -67,216 +68,160 @@ public class CrimeLocationController {
     @Autowired
     private Environment environment;
 
-    @GetMapping(CRIME_LOCATION_GET_ALL_CONTROLLER)
-    @ResponseBody
-    private String getAllCrimeLocation(@RequestParam int pageNo) {
-        CrimeLocationResponse response = new CrimeLocationResponse();
-        GeneralMessageResponse message = new GeneralMessageResponse();
-
-        try
-        {
-            int realPage = pageNo - 1;
-            Pageable pageable = PageRequest.
-                    of(realPage, Integer.parseInt(environment.getProperty(PAGINATION_CONTENT_SIZE_PER_PAGE)),
-                            Sort.by(Sort.Direction.ASC, "crimeMapsName"));
-
-            Page<CrimeLocationEntity> page = crimeLocationRepository.findAll(pageable);
-            ArrayList<CrimeLocationEntity> crimeLocationEntities = new ArrayList<>(page.getContent());
-
-            ArrayList<CrimeLocationModel> crimeLocationModels = new ArrayList<>();
-            for (CrimeLocationEntity crimeLocationEntity : crimeLocationEntities)
-            {
-                ProvinceEntity province = null;
-                if (crimeLocationEntity.getProvince() != null)
-                    province = checkProvinceWasExistOrNot(crimeLocationEntity.getProvince().getProvinceId());
-
-                CityEntity city = null;
-                if (crimeLocationEntity.getCity() != null)
-                    city = checkCityWasExistOrNot(crimeLocationEntity.getCity().getCityId());
-
-                SubDistrictEntity subDistrict = null;
-                if (crimeLocationEntity.getSubDistrict() != null)
-                    subDistrict = checkSubDistrictWasExistOrNot(
-                            crimeLocationEntity.getSubDistrict().getSubDistrictId());
-
-                UrbanVillageEntity urbanVillage = null;
-                if (crimeLocationEntity.getUrbanVillage() != null)
-                    urbanVillage = checkUrbanVillageWasExistOrNot(
-                            crimeLocationEntity.getUrbanVillage().getUrbanVillageId());
-
-                AdminEntity createdBy = null;
-                if (crimeLocationEntity.getCreatedBy() != null)
-                    createdBy = checkAdminWasExistOrNot(crimeLocationEntity.getCreatedBy().getAdminId());
-
-                AdminEntity updatedBy = null;
-                if (crimeLocationEntity.getUpdatedBy() != null)
-                    updatedBy = checkAdminWasExistOrNot(crimeLocationEntity.getUpdatedBy().getAdminId());
-
-                crimeLocationModels.add(new CrimeLocationModel().
-                        convertFromEntityToModel(
-                                crimeLocationEntity,
-                                province,
-                                city,
-                                subDistrict,
-                                urbanVillage,
-                                crimeLocationEntity.getImageCrimeLocations(),
-                                0.0,
-                                DEFAULT_DISTANCE_UNIT,
-                                createdBy,
-                                updatedBy));
-            }
-
-            response.setCrimeLocations(crimeLocationModels);
-            response.setPage(paginationService.getPagination(
-                    pageNo, CRIME_LOCATION_GET_ALL_CONTROLLER,
-                    page, new String[]{"pageNo"}, new String[]{}));
-
-            message.setSuccess(true);
-            message.setMessage(
-                    successProcess(
-                            SUCCESS_SELECT_ALL,
-                            environment.getProperty(ENTITY_CRIME_LOCATION)));
-        } catch (Exception e) {
-            message.setSuccess(false);
-            message.setMessage(e.getMessage());
-        }
-
-        response.setMessage(message);
-        return response.toJson(response, OPERATION_SELECT);
-    }
-
-    @PostMapping(CRIME_LOCATION_SEARCH_AREA_ID_CONTROLLER)
-    private String getAllCrimeLocation(@RequestParam int pageNo,
+    @PostMapping(END_POINT_CRIME_LOCATION)
+    private String getAllCrimeLocation(@RequestParam String searchBy,
+                                       @RequestParam int pageNo,
                                        @Validated @RequestBody CrimeLocationEntity crimeLocationEntity) {
         CrimeLocationResponse response = new CrimeLocationResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
-        try
-        {
+        try {
             int realPage = pageNo - 1;
             Pageable pageable = PageRequest.
                     of(realPage, Integer.parseInt(environment.getProperty(PAGINATION_CONTENT_SIZE_PER_PAGE)),
                             Sort.by(Sort.Direction.ASC, "crime_maps_name"));
 
             Page<CrimeLocationEntity> page = null;
-            if (crimeLocationEntity.getProvince().getProvinceId() != null)
-            {
-                ProvinceEntity existProvince = checkProvinceWasExistOrNot(
-                        crimeLocationEntity.getProvince().getProvinceId());
+            switch (searchBy) {
+                case PARAM_NAME:
+                case PARAM_NEAREST_LOCATION:
+                    page = crimeLocationRepository.findByName(
+                            pageable,
+                            crimeLocationEntity.getCrimeMapsName());
+                    break;
+                case PARAM_PROVINCE_ID:
+                    ProvinceEntity existProvince = checkEntityExistOrNot(
+                            crimeLocationEntity.getProvince());
 
-                if (existProvince == null)
-                {
-                    message.setSuccess(false);
-                    message.setMessage(existEntityNotFound(
-                            environment.getProperty(ENTITY_PROVINCE),
-                            environment.getProperty(ENTITY_PROVINCE_ID),
-                            String.valueOf(crimeLocationEntity.getProvince().getProvinceId()),
-                            "Get All",
-                            environment.getProperty(ENTITY_CRIME_LOCATION)));
-                } else {
-                    page = crimeLocationRepository.findByProvinceId(
+                    if (existProvince == null) {
+                        message.setSuccess(false);
+                        message.setMessage(existEntityNotFound(
+                                environment.getProperty(ENTITY_PROVINCE),
+                                environment.getProperty(ENTITY_PROVINCE_ID),
+                                String.valueOf(crimeLocationEntity.getProvince().getProvinceId()),
+                                environment.getProperty(OPERATION_NAME_READ_ALL),
+                                environment.getProperty(ENTITY_CRIME_LOCATION)));
+
+                        response.setMessage(message);
+                        return response.toJson(response, OPERATION_SELECT);
+                    } else page = crimeLocationRepository.findByProvinceId(
                             pageable,
                             existProvince.getProvinceId(),
                             crimeLocationEntity.getCrimeMapsName());
-                }
-            } else if (crimeLocationEntity.getCity().getCityId() != null)
-            {
-                CityEntity existCity = checkCityWasExistOrNot(
-                        crimeLocationEntity.getCity().getCityId());
+                    break;
+                case PARAM_CITY_ID:
+                    CityEntity existCity = checkEntityExistOrNot(
+                            crimeLocationEntity.getCity());
 
-                if (existCity == null)
-                {
-                    message.setSuccess(false);
-                    message.setMessage(existEntityNotFound(
-                            environment.getProperty(ENTITY_CITY),
-                            environment.getProperty(ENTITY_CITY_ID),
-                            String.valueOf(crimeLocationEntity.getProvince().getProvinceId()),
-                            "Get All",
-                            environment.getProperty(ENTITY_CRIME_LOCATION)));
-                } else {
-                    page = crimeLocationRepository.findByCityId(
+                    if (existCity == null) {
+                        message.setSuccess(false);
+                        message.setMessage(existEntityNotFound(
+                                environment.getProperty(ENTITY_CITY),
+                                environment.getProperty(ENTITY_CITY_ID),
+                                String.valueOf(crimeLocationEntity.getCity().getCityId()),
+                                environment.getProperty(OPERATION_NAME_READ_ALL),
+                                environment.getProperty(ENTITY_CRIME_LOCATION)));
+
+                        response.setMessage(message);
+                        return response.toJson(response, OPERATION_SELECT);
+                    } else page = crimeLocationRepository.findByCityId(
                             pageable,
                             existCity.getCityId(),
                             crimeLocationEntity.getCrimeMapsName());
-                }
-            } else if (crimeLocationEntity.getSubDistrict().getSubDistrictId() != null)
-            {
-                SubDistrictEntity existSubDistrict = checkSubDistrictWasExistOrNot(
-                        crimeLocationEntity.getSubDistrict().getSubDistrictId());
+                    break;
+                case PARAM_SUB_DISTRICT_ID:
+                    SubDistrictEntity existSubDistrict = checkEntityExistOrNot(
+                            crimeLocationEntity.getSubDistrict());
 
-                if (existSubDistrict == null)
-                {
-                    message.setSuccess(false);
-                    message.setMessage(existEntityNotFound(
-                            environment.getProperty(ENTITY_SUB_DISTRICT),
-                            environment.getProperty(ENTITY_SUB_DISTRICT_ID),
-                            String.valueOf(crimeLocationEntity.getProvince().getProvinceId()),
-                            "Get All",
-                            environment.getProperty(ENTITY_CRIME_LOCATION)));
-                } else {
-                    page = crimeLocationRepository.findBySubDistrictId(
+                    if (existSubDistrict == null) {
+                        message.setSuccess(false);
+                        message.setMessage(existEntityNotFound(
+                                environment.getProperty(ENTITY_SUB_DISTRICT),
+                                environment.getProperty(ENTITY_SUB_DISTRICT_ID),
+                                String.valueOf(crimeLocationEntity.getSubDistrict().getSubDistrictId()),
+                                environment.getProperty(OPERATION_NAME_READ_ALL),
+                                environment.getProperty(ENTITY_CRIME_LOCATION)));
+
+                        response.setMessage(message);
+                        return response.toJson(response, OPERATION_SELECT);
+                    } else page = crimeLocationRepository.findBySubDistrictId(
                             pageable,
                             existSubDistrict.getSubDistrictId(),
                             crimeLocationEntity.getCrimeMapsName());
-                }
-            } else if (crimeLocationEntity.getUrbanVillage().getUrbanVillageId() != null)
-            {
-                UrbanVillageEntity existUrbanVillage = checkUrbanVillageWasExistOrNot(
-                        crimeLocationEntity.getUrbanVillage().getUrbanVillageId());
+                    break;
+                case PARAM_URBAN_VILLAGE_ID:
+                    UrbanVillageEntity existUrbanVillage = checkEntityExistOrNot(
+                            crimeLocationEntity.getUrbanVillage());
 
-                if (existUrbanVillage == null)
-                {
-                    message.setSuccess(false);
-                    message.setMessage(existEntityNotFound(
-                            environment.getProperty(ENTITY_URBAN_VILLAGE),
-                            environment.getProperty(ENTITY_URBAN_VILLAGE_ID),
-                            String.valueOf(crimeLocationEntity.getProvince().getProvinceId()),
-                            "Get All",
-                            environment.getProperty(ENTITY_CRIME_LOCATION)));
-                } else {
-                    page = crimeLocationRepository.findByUrbanVillageId(
+                    if (existUrbanVillage == null) {
+                        message.setSuccess(false);
+                        message.setMessage(existEntityNotFound(
+                                environment.getProperty(ENTITY_URBAN_VILLAGE),
+                                environment.getProperty(ENTITY_URBAN_VILLAGE_ID),
+                                String.valueOf(crimeLocationEntity.getUrbanVillage().getUrbanVillageId()),
+                                environment.getProperty(OPERATION_NAME_READ_ALL),
+                                environment.getProperty(ENTITY_CRIME_LOCATION)));
+
+                        response.setMessage(message);
+                        return response.toJson(response, OPERATION_SELECT);
+                    } else page = crimeLocationRepository.findByUrbanVillageId(
                             pageable,
                             existUrbanVillage.getUrbanVillageId(),
                             crimeLocationEntity.getCrimeMapsName());
-                }
-            } else {
-                page = crimeLocationRepository.findByName(
-                        pageable,
-                        crimeLocationEntity.getCrimeMapsName());
+                    break;
             }
 
             ArrayList<CrimeLocationEntity> crimeLocationEntities = new ArrayList<>(page.getContent());
 
             ArrayList<CrimeLocationModel> crimeLocationModels = new ArrayList<>();
-            for (CrimeLocationEntity crimeLocation : crimeLocationEntities)
-            {
+            for (CrimeLocationEntity crimeLocation : crimeLocationEntities) {
                 ProvinceEntity province = null;
                 if (crimeLocation.getProvince() != null)
-                    province = checkProvinceWasExistOrNot(crimeLocation.getProvince().getProvinceId());
+                    province = checkEntityExistOrNot(crimeLocation.getProvince());
 
                 CityEntity city = null;
                 if (crimeLocation.getCity() != null)
-                    city = checkCityWasExistOrNot(crimeLocation.getCity().getCityId());
+                    city = checkEntityExistOrNot(crimeLocation.getCity());
 
                 SubDistrictEntity subDistrict = null;
                 if (crimeLocation.getSubDistrict() != null)
-                    subDistrict = checkSubDistrictWasExistOrNot(
-                            crimeLocation.getSubDistrict().getSubDistrictId());
+                    subDistrict = checkEntityExistOrNot(
+                            crimeLocation.getSubDistrict());
 
                 UrbanVillageEntity urbanVillage = null;
                 if (crimeLocation.getUrbanVillage() != null)
-                    urbanVillage = checkUrbanVillageWasExistOrNot(
-                            crimeLocation.getUrbanVillage().getUrbanVillageId());
+                    urbanVillage = checkEntityExistOrNot(
+                            crimeLocation.getUrbanVillage());
 
                 AdminEntity createdBy = null;
                 if (crimeLocation.getCreatedBy() != null)
-                    createdBy = checkAdminWasExistOrNot(crimeLocation.getCreatedBy().getAdminId());
+                    createdBy = checkEntityExistOrNot(crimeLocation.getCreatedBy().getAdminId());
 
                 AdminEntity updatedBy = null;
                 if (crimeLocation.getUpdatedBy() != null)
-                    updatedBy = checkAdminWasExistOrNot(crimeLocation.getUpdatedBy().getAdminId());
+                    updatedBy = checkEntityExistOrNot(crimeLocation.getUpdatedBy().getAdminId());
 
-                crimeLocationModels.add(new CrimeLocationModel().
+                if (searchBy.equalsIgnoreCase(PARAM_NEAREST_LOCATION)) {
+                    double distance = crimeLocationService.calculateDistance(
+                            Double.parseDouble(crimeLocationEntity.getCrimeMapsLatitude()),
+                            Double.parseDouble(crimeLocationEntity.getCrimeMapsLongitude()),
+                            Double.parseDouble(crimeLocation.getCrimeMapsLatitude()),
+                            Double.parseDouble(crimeLocation.getCrimeMapsLongitude()));
+
+                    if (distance <= DEFAULT_MAX_NEAREST_DISTANCE)
+                        crimeLocationModels.add(new CrimeLocationModel().
+                                convertFromEntityToModel(
+                                        crimeLocation,
+                                        province,
+                                        city,
+                                        subDistrict,
+                                        urbanVillage,
+                                        crimeLocation.getImageCrimeLocations(),
+                                        distance,
+                                        DEFAULT_DISTANCE_UNIT,
+                                        createdBy,
+                                        updatedBy));
+                } else crimeLocationModels.add(new CrimeLocationModel().
                         convertFromEntityToModel(
                                 crimeLocation,
                                 province,
@@ -292,8 +237,8 @@ public class CrimeLocationController {
 
             response.setCrimeLocations(crimeLocationModels);
             response.setPage(paginationService.getPagination(
-                    pageNo, CRIME_LOCATION_SEARCH_AREA_ID_CONTROLLER,
-                    page, new String[]{"pageNo"}, new String[]{}));
+                    pageNo, END_POINT_CRIME_LOCATION,
+                    page, new String[]{PARAM_SEARCH_BY, PARAM_PAGE_NO}, new String[]{searchBy}));
 
             message.setSuccess(true);
             message.setMessage(
@@ -309,101 +254,47 @@ public class CrimeLocationController {
         return response.toJson(response, OPERATION_SELECT);
     }
 
-    @PostMapping(CRIME_LOCATION_GET_ALL_NEAREST_LOCATION_CONTROLLER)
-    private String getAllCrimeLocation(@RequestParam double userLatitude, @RequestParam double userLongitude) {
-        CrimeLocationResponse response = new CrimeLocationResponse();
-        GeneralMessageResponse message = new GeneralMessageResponse();
-
-        try
-        {
-            int count = 0;
-            ArrayList<CrimeLocationModel> crimeLocationModels = new ArrayList<>();
-            for (CrimeLocationEntity crimeLocationEntity : crimeLocationRepository.findAll())
-            {
-                if (count >= 10)
-                    break;
-
-                double distance = crimeLocationService.calculateDistance(
-                        userLatitude,
-                        userLongitude,
-                        Double.parseDouble(crimeLocationEntity.getCrimeMapsLatitude()),
-                        Double.parseDouble(crimeLocationEntity.getCrimeMapsLongitude()));
-                if (distance <= DEFAULT_MAX_NEAREST_DISTANCE)
-                {
-                    count++;
-
-                    crimeLocationModels.add(new CrimeLocationModel().
-                            convertFromEntityToModel(
-                                    crimeLocationEntity,
-                                    crimeLocationEntity.getProvince(),
-                                    crimeLocationEntity.getCity(),
-                                    crimeLocationEntity.getSubDistrict(),
-                                    crimeLocationEntity.getUrbanVillage(),
-                                    crimeLocationEntity.getImageCrimeLocations(),
-                                    distance,
-                                    DEFAULT_DISTANCE_UNIT,
-                                    crimeLocationEntity.getCreatedBy(),
-                                    crimeLocationEntity.getUpdatedBy()));
-                }
-            }
-
-            response.setCrimeLocations(crimeLocationModels);
-
-            message.setSuccess(true);
-            message.setMessage(
-                    successProcess(
-                            SUCCESS_SELECT_ALL,
-                            environment.getProperty(ENTITY_CRIME_LOCATION)));
-        } catch (Exception e) {
-            message.setSuccess(false);
-            message.setMessage(e.getMessage());
-        }
-
-        response.setMessage(message);
-        return response.toJson(response, OPERATION_SELECT_DIST);
-    }
-
-    @PostMapping(CRIME_LOCATION_SEARCH_ID_CONTROLLER)
-    private String getCrimeLocation(@Validated @RequestParam("crimeLocationId") UUID crimeLocationId) {
+    @PostMapping(END_POINT_DETAIL_CRIME_LOCATION)
+    private String getCrimeLocation(@Validated @RequestBody CrimeLocationEntity crimeLocationEntity) {
         CrimeLocationResponse response = new CrimeLocationResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
         try {
-            CrimeLocationEntity existCrimeLocation = checkCrimeLocationWasExistOrNot(crimeLocationId);
+            CrimeLocationEntity existCrimeLocation = checkEntityExistOrNot(
+                    crimeLocationEntity);
 
-            if (existCrimeLocation == null)
-            {
+            if (existCrimeLocation == null) {
                 message.setSuccess(false);
                 message.setMessage(existEntityNotFound(
                         environment.getProperty(ENTITY_CRIME_LOCATION),
                         environment.getProperty(ENTITY_CRIME_LOCATION_ID),
-                        String.valueOf(crimeLocationId)));
+                        String.valueOf(crimeLocationEntity.getCrimeLocationId())));
             } else {
                 ProvinceEntity province = null;
                 if (existCrimeLocation.getProvince() != null)
-                    province = checkProvinceWasExistOrNot(existCrimeLocation.getProvince().getProvinceId());
+                    province = checkEntityExistOrNot(existCrimeLocation.getProvince());
 
                 CityEntity city = null;
                 if (existCrimeLocation.getCity() != null)
-                    city = checkCityWasExistOrNot(existCrimeLocation.getCity().getCityId());
+                    city = checkEntityExistOrNot(existCrimeLocation.getCity());
 
                 SubDistrictEntity subDistrict = null;
                 if (existCrimeLocation.getSubDistrict() != null)
-                    subDistrict = checkSubDistrictWasExistOrNot(
-                            existCrimeLocation.getSubDistrict().getSubDistrictId());
+                    subDistrict = checkEntityExistOrNot(
+                            existCrimeLocation.getSubDistrict());
 
                 UrbanVillageEntity urbanVillage = null;
                 if (existCrimeLocation.getUrbanVillage() != null)
-                    urbanVillage = checkUrbanVillageWasExistOrNot(
-                            existCrimeLocation.getUrbanVillage().getUrbanVillageId());
+                    urbanVillage = checkEntityExistOrNot(
+                            existCrimeLocation.getUrbanVillage());
 
                 AdminEntity createdBy = null;
                 if (existCrimeLocation.getCreatedBy() != null)
-                    createdBy = checkAdminWasExistOrNot(existCrimeLocation.getCreatedBy().getAdminId());
+                    createdBy = checkEntityExistOrNot(existCrimeLocation.getCreatedBy().getAdminId());
 
                 AdminEntity updatedBy = null;
                 if (existCrimeLocation.getUpdatedBy() != null)
-                    updatedBy = checkAdminWasExistOrNot(existCrimeLocation.getUpdatedBy().getAdminId());
+                    updatedBy = checkEntityExistOrNot(existCrimeLocation.getUpdatedBy().getAdminId());
 
                 response.setCrimeLocation(
                         new CrimeLocationModel().
@@ -435,7 +326,7 @@ public class CrimeLocationController {
     }
 
     @RequestMapping(
-            path = CRIME_LOCATION_ADD_CONTROLLER,
+            path = END_POINT_ADD_CRIME_LOCATION,
             method = RequestMethod.POST,
             consumes = {"multipart/form-data"})
     private String add(@Validated @RequestParam("crimeLocationEntity") String jsonCrimeLocationEntity,
@@ -443,70 +334,64 @@ public class CrimeLocationController {
         CrimeLocationResponse response = new CrimeLocationResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
-        try
-        {
+        try {
             CrimeLocationEntity crimeLocationEntity = new Gson().fromJson(jsonCrimeLocationEntity, CrimeLocationEntity.class);
-            AdminEntity createdBy = checkAdminWasExistOrNot(crimeLocationEntity.getCreatedBy().getAdminId());
+            AdminEntity createdBy = checkEntityExistOrNot(crimeLocationEntity.getCreatedBy().getAdminId());
 
-            if (createdBy == null)
-            {
+            if (createdBy == null) {
                 message.setSuccess(false);
                 message.setMessage(existEntityNotFound(
                         environment.getProperty(ENTITY_ADMIN),
                         environment.getProperty(ENTITY_ADMIN_ID),
                         String.valueOf(crimeLocationEntity.getCreatedBy().getAdminId()),
-                        "Created New",
+                        environment.getProperty(OPERATION_NAME_CREATE),
                         environment.getProperty(ENTITY_CRIME_LOCATION)));
             } else {
-                ProvinceEntity province = checkProvinceWasExistOrNot(
-                        crimeLocationEntity.getProvince().getProvinceId());
+                ProvinceEntity province = checkEntityExistOrNot(
+                        crimeLocationEntity.getProvince());
 
-                if (province == null)
-                {
+                if (province == null) {
                     message.setSuccess(false);
                     message.setMessage(existEntityNotFound(
                             environment.getProperty(ENTITY_PROVINCE),
                             environment.getProperty(ENTITY_PROVINCE_ID),
                             String.valueOf(crimeLocationEntity.getProvince().getProvinceId()),
-                            "Created New",
+                            environment.getProperty(OPERATION_NAME_CREATE),
                             environment.getProperty(ENTITY_CRIME_LOCATION)));
                 } else {
-                    CityEntity city = checkCityWasExistOrNot(crimeLocationEntity.getCity().getCityId());
+                    CityEntity city = checkEntityExistOrNot(crimeLocationEntity.getCity());
 
-                    if (city == null)
-                    {
+                    if (city == null) {
                         message.setSuccess(false);
                         message.setMessage(existEntityNotFound(
                                 environment.getProperty(ENTITY_CITY),
                                 environment.getProperty(ENTITY_CITY_ID),
                                 String.valueOf(crimeLocationEntity.getProvince().getProvinceId()),
-                                "Created New",
+                                environment.getProperty(OPERATION_NAME_CREATE),
                                 environment.getProperty(ENTITY_CRIME_LOCATION)));
                     } else {
-                        SubDistrictEntity subDistrict = checkSubDistrictWasExistOrNot(
-                                crimeLocationEntity.getSubDistrict().getSubDistrictId());
+                        SubDistrictEntity subDistrict = checkEntityExistOrNot(
+                                crimeLocationEntity.getSubDistrict());
 
-                        if (subDistrict == null)
-                        {
+                        if (subDistrict == null) {
                             message.setSuccess(false);
                             message.setMessage(existEntityNotFound(
                                     environment.getProperty(ENTITY_SUB_DISTRICT),
                                     environment.getProperty(ENTITY_SUB_DISTRICT_ID),
                                     String.valueOf(crimeLocationEntity.getProvince().getProvinceId()),
-                                    "Created New",
+                                    environment.getProperty(OPERATION_NAME_CREATE),
                                     environment.getProperty(ENTITY_CRIME_LOCATION)));
                         } else {
-                            UrbanVillageEntity urbanVillage = checkUrbanVillageWasExistOrNot(
-                                    crimeLocationEntity.getUrbanVillage().getUrbanVillageId());
+                            UrbanVillageEntity urbanVillage = checkEntityExistOrNot(
+                                    crimeLocationEntity.getUrbanVillage());
 
-                            if (urbanVillage == null)
-                            {
+                            if (urbanVillage == null) {
                                 message.setSuccess(false);
                                 message.setMessage(existEntityNotFound(
                                         environment.getProperty(ENTITY_URBAN_VILLAGE),
                                         environment.getProperty(ENTITY_URBAN_VILLAGE_ID),
                                         String.valueOf(crimeLocationEntity.getProvince().getProvinceId()),
-                                        "Created New",
+                                        environment.getProperty(OPERATION_NAME_CREATE),
                                         environment.getProperty(ENTITY_CRIME_LOCATION)));
                             } else {
                                 crimeLocationEntity.setCreatedBy(createdBy);
@@ -519,11 +404,9 @@ public class CrimeLocationController {
                                     @Override
                                     public void onResponse(CrimeLocationEntity crimeLocation, ImageStorageResponse imageStorageResponse) {
                                         super.onResponse(crimeLocation, imageStorageResponse);
-                                        if (imageStorageResponse.getSuccess())
-                                        {
+                                        if (imageStorageResponse.getSuccess()) {
                                             List<ImageCrimeLocationEntity> imageCrimeLocationEntities = new ArrayList<>();
-                                            for (String imageName : imageStorageResponse.getValues())
-                                            {
+                                            for (String imageName : imageStorageResponse.getValues()) {
                                                 ImageCrimeLocationEntity imageCrimeLocationEntity = new ImageCrimeLocationEntity();
                                                 imageCrimeLocationEntity.setCrimeLocation(crimeLocation);
                                                 imageCrimeLocationEntity.setImageName(imageName);
@@ -551,7 +434,7 @@ public class CrimeLocationController {
                                             message.setMessage(
                                                     successProcess(
                                                             environment.getProperty(ENTITY_CRIME_LOCATION),
-                                                            "Added New"));
+                                                            environment.getProperty(OPERATION_NAME_CREATE)));
                                         } else {
                                             crimeLocationRepository.delete(crimeLocation);
 
@@ -576,7 +459,7 @@ public class CrimeLocationController {
     }
 
     @RequestMapping(
-            path = CRIME_LOCATION_ADD_IMAGE_CONTROLLER,
+            path = END_POINT_ADD_IMAGE_CRIME_LOCATION,
             method = RequestMethod.POST,
             consumes = {"multipart/form-data"})
     private String addImageCrimeLocation(@Validated @RequestParam("crimeLocationEntity") String jsonCrimeLocationEntity,
@@ -584,40 +467,35 @@ public class CrimeLocationController {
         CrimeLocationResponse response = new CrimeLocationResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
-        try
-        {
+        try {
             CrimeLocationEntity crimeLocationEntity = new Gson().fromJson(jsonCrimeLocationEntity, CrimeLocationEntity.class);
-            CrimeLocationEntity existCrimeLocation = checkCrimeLocationWasExistOrNot(
-                    crimeLocationEntity.getCrimeLocationId());
-            AdminEntity updateBy = checkAdminWasExistOrNot(crimeLocationEntity.getUpdatedBy().getAdminId());
+            CrimeLocationEntity existCrimeLocation = checkEntityExistOrNot(
+                    crimeLocationEntity);
+            AdminEntity updateBy = checkEntityExistOrNot(crimeLocationEntity.getUpdatedBy().getAdminId());
 
-            if (existCrimeLocation == null)
-            {
+            if (existCrimeLocation == null) {
                 message.setSuccess(false);
                 message.setMessage(existEntityNotFound(
                         environment.getProperty(ENTITY_CRIME_LOCATION),
                         environment.getProperty(ENTITY_CRIME_LOCATION_ID),
                         String.valueOf(crimeLocationEntity.getCrimeLocationId())));
             } else {
-                if (updateBy == null)
-                {
+                if (updateBy == null) {
                     message.setSuccess(false);
                     message.setMessage(existEntityNotFound(
                             environment.getProperty(ENTITY_ADMIN),
                             environment.getProperty(ENTITY_ADMIN_ID),
                             String.valueOf(crimeLocationEntity.getUpdatedBy().getAdminId()),
-                            "Updated Existing",
-                            environment.getProperty(ENTITY_CRIME_LOCATION)));
+                            environment.getProperty(OPERATION_NAME_UPDATE),
+                            environment.getProperty(ENTITY_IMAGE_CRIME_LOCATION)));
                 } else {
                     imageService.setResponseImageService(new ResponseImageService() {
                         @Override
                         public void onResponse(CrimeLocationEntity crimeLocation, ImageStorageResponse imageStorageResponse) {
                             super.onResponse(crimeLocation, imageStorageResponse);
-                            if (imageStorageResponse.getSuccess())
-                            {
+                            if (imageStorageResponse.getSuccess()) {
                                 List<ImageCrimeLocationEntity> imageCrimeLocationEntities = new ArrayList<>();
-                                for (String imageName : imageStorageResponse.getValues())
-                                {
+                                for (String imageName : imageStorageResponse.getValues()) {
                                     ImageCrimeLocationEntity imageCrimeLocationEntity = new ImageCrimeLocationEntity();
                                     imageCrimeLocationEntity.setCrimeLocation(crimeLocation);
                                     imageCrimeLocationEntity.setImageName(imageName);
@@ -650,8 +528,8 @@ public class CrimeLocationController {
                                 message.setSuccess(true);
                                 message.setMessage(
                                         successProcess(
-                                                environment.getProperty(ENTITY_CRIME_LOCATION),
-                                                "Added New"));
+                                                environment.getProperty(ENTITY_IMAGE_CRIME_LOCATION),
+                                                environment.getProperty(OPERATION_NAME_CREATE)));
                             } else {
                                 message.setSuccess(false);
                                 message.setMessage(imageStorageResponse.getMessage());
@@ -670,88 +548,82 @@ public class CrimeLocationController {
         return response.toJson(response, OPERATION_CRU);
     }
 
-    @PostMapping(CRIME_LOCATION_UPDATE_CONTROLLER)
+    @PostMapping(END_POINT_UPDATE_CRIME_LOCATION)
     private String update(@Validated @RequestBody CrimeLocationEntity crimeLocationEntity) {
         CrimeLocationResponse response = new CrimeLocationResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
         try {
-            CrimeLocationEntity existCrimeLocation = checkCrimeLocationWasExistOrNot(
-                    crimeLocationEntity.getCrimeLocationId());
-            AdminEntity updatedBy = checkAdminWasExistOrNot(crimeLocationEntity.getUpdatedBy().getAdminId());
+            CrimeLocationEntity existCrimeLocation = checkEntityExistOrNot(
+                    crimeLocationEntity);
+            AdminEntity updatedBy = checkEntityExistOrNot(crimeLocationEntity.getUpdatedBy().getAdminId());
 
-            if (existCrimeLocation == null)
-            {
+            if (existCrimeLocation == null) {
                 message.setSuccess(false);
                 message.setMessage(existEntityNotFound(
                         environment.getProperty(ENTITY_CRIME_LOCATION),
                         environment.getProperty(ENTITY_CRIME_LOCATION_ID),
                         String.valueOf(crimeLocationEntity.getCrimeLocationId())));
             } else {
-                if (updatedBy == null)
-                {
+                if (updatedBy == null) {
                     message.setSuccess(false);
                     message.setMessage(existEntityNotFound(
                             environment.getProperty(ENTITY_ADMIN),
                             environment.getProperty(ENTITY_ADMIN_ID),
                             String.valueOf(crimeLocationEntity.getUpdatedBy().getAdminId()),
-                            "Updated Existing",
+                            environment.getProperty(OPERATION_NAME_UPDATE),
                             environment.getProperty(ENTITY_CRIME_LOCATION)));
                 } else {
-                    ProvinceEntity province = checkProvinceWasExistOrNot(
-                            crimeLocationEntity.getProvince().getProvinceId());
+                    ProvinceEntity province = checkEntityExistOrNot(
+                            crimeLocationEntity.getProvince());
 
-                    if (province == null)
-                    {
+                    if (province == null) {
                         message.setSuccess(false);
                         message.setMessage(existEntityNotFound(
                                 environment.getProperty(ENTITY_PROVINCE),
                                 environment.getProperty(ENTITY_PROVINCE_ID),
                                 String.valueOf(crimeLocationEntity.getProvince().getProvinceId()),
-                                "Updated Existing",
+                                environment.getProperty(OPERATION_NAME_UPDATE),
                                 environment.getProperty(ENTITY_CRIME_LOCATION)));
                     } else {
-                        CityEntity city = checkCityWasExistOrNot(crimeLocationEntity.getCity().getCityId());
+                        CityEntity city = checkEntityExistOrNot(crimeLocationEntity.getCity());
 
-                        if (city == null)
-                        {
+                        if (city == null) {
                             message.setSuccess(false);
                             message.setMessage(existEntityNotFound(
                                     environment.getProperty(ENTITY_CITY),
                                     environment.getProperty(ENTITY_CITY_ID),
                                     String.valueOf(crimeLocationEntity.getProvince().getProvinceId()),
-                                    "Updated Existing",
+                                    environment.getProperty(OPERATION_NAME_UPDATE),
                                     environment.getProperty(ENTITY_CRIME_LOCATION)));
                         } else {
-                            SubDistrictEntity subDistrict = checkSubDistrictWasExistOrNot(
-                                    crimeLocationEntity.getSubDistrict().getSubDistrictId());
+                            SubDistrictEntity subDistrict = checkEntityExistOrNot(
+                                    crimeLocationEntity.getSubDistrict());
 
-                            if (subDistrict == null)
-                            {
+                            if (subDistrict == null) {
                                 message.setSuccess(false);
                                 message.setMessage(existEntityNotFound(
                                         environment.getProperty(ENTITY_SUB_DISTRICT),
                                         environment.getProperty(ENTITY_SUB_DISTRICT_ID),
                                         String.valueOf(crimeLocationEntity.getProvince().getProvinceId()),
-                                        "Updated Existing",
+                                        environment.getProperty(OPERATION_NAME_UPDATE),
                                         environment.getProperty(ENTITY_CRIME_LOCATION)));
                             } else {
-                                UrbanVillageEntity urbanVillage = checkUrbanVillageWasExistOrNot(
-                                        crimeLocationEntity.getUrbanVillage().getUrbanVillageId());
+                                UrbanVillageEntity urbanVillage = checkEntityExistOrNot(
+                                        crimeLocationEntity.getUrbanVillage());
 
-                                if (urbanVillage == null)
-                                {
+                                if (urbanVillage == null) {
                                     message.setSuccess(false);
                                     message.setMessage(existEntityNotFound(
                                             environment.getProperty(ENTITY_URBAN_VILLAGE),
                                             environment.getProperty(ENTITY_URBAN_VILLAGE_ID),
                                             String.valueOf(crimeLocationEntity.getProvince().getProvinceId()),
-                                            "Updated Existing",
+                                            environment.getProperty(OPERATION_NAME_UPDATE),
                                             environment.getProperty(ENTITY_CRIME_LOCATION)));
                                 } else {
                                     AdminEntity createdBy = null;
                                     if (existCrimeLocation.getCreatedBy() != null)
-                                        createdBy = checkAdminWasExistOrNot(
+                                        createdBy = checkEntityExistOrNot(
                                                 existCrimeLocation.getCreatedBy().getAdminId());
 
                                     existCrimeLocation.setProvince(province);
@@ -789,7 +661,7 @@ public class CrimeLocationController {
                                             String.valueOf(crimeLocationEntity.getCrimeLocationId()),
                                             environment.getProperty(ENTITY_CRIME_LOCATION_NAME),
                                             existCrimeLocation.getCrimeMapsName(),
-                                            "Updated"));
+                                            environment.getProperty(OPERATION_NAME_UPDATE)));
                                 }
                             }
                         }
@@ -805,17 +677,16 @@ public class CrimeLocationController {
         return response.toJson(response, OPERATION_CRU);
     }
 
-    @PostMapping(CRIME_LOCATION_DELETE_CONTROLLER)
+    @PostMapping(END_POINT_DELETE_CRIME_LOCATION)
     private String delete(@Validated @RequestBody CrimeLocationEntity crimeLocationEntity) {
         CrimeLocationResponse response = new CrimeLocationResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
         try {
-            CrimeLocationEntity existCrimeLocation = checkCrimeLocationWasExistOrNot(
-                    crimeLocationEntity.getCrimeLocationId());
+            CrimeLocationEntity existCrimeLocation = checkEntityExistOrNot(
+                    crimeLocationEntity);
 
-            if (existCrimeLocation == null)
-            {
+            if (existCrimeLocation == null) {
                 message.setSuccess(false);
                 message.setMessage(existEntityNotFound(
                         environment.getProperty(ENTITY_CRIME_LOCATION),
@@ -826,8 +697,7 @@ public class CrimeLocationController {
                     @Override
                     public void onResponse(ImageStorageResponse response) {
                         super.onResponse(response);
-                        if (response.getSuccess())
-                        {
+                        if (response.getSuccess()) {
                             crimeLocationRepository.delete(existCrimeLocation);
 
                             message.setSuccess(true);
@@ -838,7 +708,7 @@ public class CrimeLocationController {
                                             String.valueOf(crimeLocationEntity.getCrimeLocationId()),
                                             environment.getProperty(ENTITY_CRIME_LOCATION_NAME),
                                             existCrimeLocation.getCrimeMapsName(),
-                                            "Deleted"));
+                                            environment.getProperty(OPERATION_NAME_DELETE)));
                         } else {
                             message.setSuccess(false);
                             message.setMessage(response.getMessage());
@@ -856,49 +726,47 @@ public class CrimeLocationController {
         return response.toJson(response, OPERATION_DELETE);
     }
 
-    @PostMapping(CRIME_LOCATION_DELETE_IMAGE_CONTROLLER)
+    @PostMapping(END_POINT_DELETE_IMAGE_CRIME_LOCATION)
     private String deleteImageCrimeLocation(@Validated @RequestBody CrimeLocationEntity crimeLocationEntity) {
         CrimeLocationResponse response = new CrimeLocationResponse();
         GeneralMessageResponse message = new GeneralMessageResponse();
 
         try {
-            CrimeLocationEntity existCrimeLocation = checkCrimeLocationWasExistOrNot(
-                    crimeLocationEntity.getCrimeLocationId());
-            AdminEntity updateBy = checkAdminWasExistOrNot(crimeLocationEntity.getUpdatedBy().getAdminId());
+            CrimeLocationEntity existCrimeLocation = checkEntityExistOrNot(
+                    crimeLocationEntity);
+            AdminEntity updateBy = checkEntityExistOrNot(crimeLocationEntity.getUpdatedBy().getAdminId());
 
-            if (existCrimeLocation == null)
-            {
+            if (existCrimeLocation == null) {
                 message.setSuccess(false);
                 message.setMessage(existEntityNotFound(
                         environment.getProperty(ENTITY_CRIME_LOCATION),
                         environment.getProperty(ENTITY_CRIME_LOCATION_ID),
                         String.valueOf(crimeLocationEntity.getCrimeLocationId())));
             } else {
-                if (updateBy == null)
-                {
+                if (updateBy == null) {
                     message.setSuccess(false);
                     message.setMessage(existEntityNotFound(
                             environment.getProperty(ENTITY_ADMIN),
                             environment.getProperty(ENTITY_ADMIN_ID),
                             String.valueOf(crimeLocationEntity.getUpdatedBy().getAdminId()),
-                            "Delete Existing",
-                            environment.getProperty(ENTITY_CRIME_LOCATION)));
+                            environment.getProperty(OPERATION_NAME_DELETE),
+                            environment.getProperty(ENTITY_IMAGE_CRIME_LOCATION)));
                 } else {
                     Set<ImageCrimeLocationEntity> imageCrimeLocationEntities = new HashSet<>();
                     for (ImageCrimeLocationEntity imageCrimeLocationEntity :
-                            crimeLocationEntity.getImageCrimeLocations())
-                    {
+                            crimeLocationEntity.getImageCrimeLocations()) {
                         ImageCrimeLocationEntity existImageCrimeLocation =
-                                checkImageCrimeLocationWasExistOrNot(imageCrimeLocationEntity.getImageCrimeLocationId());
+                                checkEntityExistOrNot(imageCrimeLocationEntity);
 
-                        if (existImageCrimeLocation == null)
-                        {
+                        if (existImageCrimeLocation == null) {
                             message.setSuccess(false);
                             message.setMessage(existEntityNotFound(
                                     environment.getProperty(ENTITY_IMAGE_CRIME_LOCATION),
                                     environment.getProperty(ENTITY_IMAGE_CRIME_LOCATION_ID),
                                     String.valueOf(imageCrimeLocationEntity.getImageCrimeLocationId())));
-                            break;
+
+                            response.setMessage(message);
+                            return response.toJson(response, OPERATION_DELETE);
                         } else imageCrimeLocationEntities.add(existImageCrimeLocation);
                     }
 
@@ -906,14 +774,11 @@ public class CrimeLocationController {
                         @Override
                         public void onResponse(ImageStorageResponse response) {
                             super.onResponse(response);
-                            if (response.getSuccess())
-                            {
+                            if (response.getSuccess()) {
                                 List<ImageCrimeLocationEntity> imageCrimeLocationDeletes = new ArrayList<>();
                                 for (ImageCrimeLocationEntity imageCrimeLocationEntity :
-                                        imageCrimeLocationEntities)
-                                {
-                                    for (String imageName : response.getValues())
-                                    {
+                                        imageCrimeLocationEntities) {
+                                    for (String imageName : response.getValues()) {
                                         if (imageCrimeLocationEntity.getImageName().equalsIgnoreCase(imageName))
                                             imageCrimeLocationDeletes.add(imageCrimeLocationEntity);
                                     }
@@ -930,7 +795,7 @@ public class CrimeLocationController {
                                 message.setMessage(
                                         successProcess(
                                                 environment.getProperty(ENTITY_IMAGE_CRIME_LOCATION),
-                                                "Deleted All"));
+                                                environment.getProperty(OPERATION_NAME_DELETE)));
                             } else {
                                 message.setSuccess(false);
                                 message.setMessage(response.getMessage());
@@ -949,31 +814,38 @@ public class CrimeLocationController {
         return response.toJson(response, OPERATION_DELETE);
     }
 
-    private AdminEntity checkAdminWasExistOrNot(UUID adminId) {
+    @Override
+    public AdminEntity checkEntityExistOrNot(UUID adminId) {
         return adminRepository.findById(adminId).orElse(null);
     }
 
-    private ProvinceEntity checkProvinceWasExistOrNot(UUID provinceId) {
-        return provinceRepository.findById(provinceId).orElse(null);
+    @Override
+    public ProvinceEntity checkEntityExistOrNot(ProvinceEntity provinceEntity) {
+        return provinceRepository.findById(provinceEntity.getProvinceId()).orElse(null);
     }
 
-    private CityEntity checkCityWasExistOrNot(UUID cityId) {
-        return cityRepository.findById(cityId).orElse(null);
+    @Override
+    public CityEntity checkEntityExistOrNot(CityEntity cityEntity) {
+        return cityRepository.findById(cityEntity.getCityId()).orElse(null);
     }
 
-    private SubDistrictEntity checkSubDistrictWasExistOrNot(UUID subDistrictId) {
-        return subDistrictRepository.findById(subDistrictId).orElse(null);
+    @Override
+    public SubDistrictEntity checkEntityExistOrNot(SubDistrictEntity subDistrictEntity) {
+        return subDistrictRepository.findById(subDistrictEntity.getSubDistrictId()).orElse(null);
     }
 
-    private UrbanVillageEntity checkUrbanVillageWasExistOrNot(UUID urbanVillageId) {
-        return urbanVillageRepository.findById(urbanVillageId).orElse(null);
+    @Override
+    public UrbanVillageEntity checkEntityExistOrNot(UrbanVillageEntity urbanVillageEntity) {
+        return urbanVillageRepository.findById(urbanVillageEntity.getUrbanVillageId()).orElse(null);
     }
 
-    private CrimeLocationEntity checkCrimeLocationWasExistOrNot(UUID crimeLocationId) {
-        return crimeLocationRepository.findById(crimeLocationId).orElse(null);
+    @Override
+    public CrimeLocationEntity checkEntityExistOrNot(CrimeLocationEntity crimeLocationEntity) {
+        return crimeLocationRepository.findById(crimeLocationEntity.getCrimeLocationId()).orElse(null);
     }
 
-    private ImageCrimeLocationEntity checkImageCrimeLocationWasExistOrNot(UUID imageCrimeLocationId) {
-        return imageCrimeLocationRepository.findById(imageCrimeLocationId).orElse(null);
+    @Override
+    public ImageCrimeLocationEntity checkEntityExistOrNot(ImageCrimeLocationEntity imageCrimeLocationEntity) {
+        return imageCrimeLocationRepository.findById(imageCrimeLocationEntity.getImageCrimeLocationId()).orElse(null);
     }
 }
