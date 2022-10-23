@@ -30,4 +30,4 @@
 </p>
 
 # About
-REST API for Crime Maps Apps System, created using Java programming language with Spring framework, and PostgreSQL Database. This application was made as one of the requirements for graduation from the Nusa Mandiri University Undergraduate Program.
+REST API for Crime Maps Apps System, created using Java programming language with Spring framework, and PostgreSQL Database. This application was made as one of the requirements for graduation from the Nusa Mandiri University Bachelor Program.
