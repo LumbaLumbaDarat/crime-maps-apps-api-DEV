@@ -4,7 +4,7 @@ API for Crime Maps Apps
 Framework and Tools
 <p>
   <a href="https://www.java.com/en/">
-    <img src="https://img.shields.io/badge/Java-%230071C5.svg?&style=for-the-badge&logoColor=white" />
+    <img src="https://img.shields.io/badge/java-%23007396.svg?&style=for-the-badge&logo=java&logoColor=white" />
   </a>&nbsp;&nbsp;
   <a href="https://start.spring.io/">
     <img src="https://img.shields.io/badge/Spring-6DB33F?style=for-the-badge&logo=spring&logoColor=white" />
