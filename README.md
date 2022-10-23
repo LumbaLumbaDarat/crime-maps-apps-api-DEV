@@ -1,8 +1,6 @@
 # Crime Maps Apps API
-API for Crime Maps Apps
-
-Framework and Tools
-<p>
+<p align='center'>
+  👩‍💻 🚀 Frameworks & Tools<br/><br/>
   <a href="https://www.java.com/en/">
     <img src="https://img.shields.io/badge/java-%23007396.svg?&style=for-the-badge&logo=java&logoColor=white" />
   </a>&nbsp;&nbsp;
@@ -21,6 +19,14 @@ Framework and Tools
   <a href="https://www.heroku.com/">
     <img src="https://img.shields.io/badge/Heroku-430098?style=for-the-badge&logo=heroku&logoColor=white" />
   </a>&nbsp;&nbsp;
+</p>
+<br/><br/>
+<p align='center'>
+  💻 My workspace<br/><br/>
+  <img src="https://img.shields.io/badge/windows-%230078D6.svg?&style=for-the-badge&logo=windows&logoColor=white" />
+  <img src="https://img.shields.io/badge/amd-Ryzen 3-%23FF160B.svg?&style=for-the-badge&logo=amd&logoColor=white" />
+  <img src="https://img.shields.io/badge/RAM-12GB-%230071C5.svg?&style=for-the-badge&logoColor=white" />
+  <img src="https://img.shields.io/badge/amd-Radeon Vega-%23ED1C24.svg?&style=for-the-badge&logo=amd&logoColor=white" />
 </p>
 
 # About
